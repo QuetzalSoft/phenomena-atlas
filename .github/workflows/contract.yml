@@ -9,65 +9,133 @@
 name: Contract
 
 on:
+  # No path filter on pull_request, on purpose. The `contract` job is a required status
+  # check on main, and GitHub cannot tell "filtered out by paths" from "not reported yet":
+  # a pull request the filter excludes waits for the status forever and can never merge.
+  # A job-level `if:` is no substitute: a skipped job reports success whatever the reason
+  # it was skipped, including a failed detector, so the check would pass unverified.
+  # The job must run on every pull request and its steps decide whether to verify; that
+  # way a broken detector fails the check instead of passing it. Do not add a paths filter
+  # back here, and do not move the decision to the job level. See docs/adr/0004.
   pull_request:
-    paths:
-      - "contracts/**"
-      - ".github/workflows/contract.yml"
   push:
     branches: [main]
     paths:
       - "contracts/**"
 
+# The job reads the repository and nothing else. It runs on every pull request, forks
+# included, so the token it gets stays as narrow as that.
+permissions:
+  contents: read
+
 env:
+  # Bump both together. The hash is the linux_amd64 tarball's line in the release's
+  # checksums.txt; pinning it here, rather than trusting a checksums.txt fetched from the
+  # same release at run time, also catches a release asset replaced after the fact.
   OASDIFF_VERSION: "1.34.1"
+  OASDIFF_SHA256: "75775f65b0adebd26a8e013af51a799342dfdc6262d89efa9e3b7bdf89657d90"
 
 jobs:
   contract:
     runs-on: ubuntu-latest
+    env:
+      # The one definition of the base branch, read by both the detector and the
+      # breaking-change comparison, so they cannot disagree about what "the base" is.
+      # Empty on push runs, where neither step compares against a base.
+      BASE_REF: ${{ github.base_ref }}
     steps:
       - uses: actions/checkout@v5
         with:
           # Needed so the base revision of the generated document is available below.
           fetch-depth: 0
 
+      # The only gate on whether the contract is verified. It has to live at step level:
+      # see the comment on `on:` for why neither a path filter nor a job-level `if:` may
+      # make this decision. It fails closed: if git cannot answer, the check fails here
+      # rather than skipping verification it cannot prove is unnecessary.
+      - name: Detect contract changes
+        id: changes
+        run: |
+          if [ "$GITHUB_EVENT_NAME" != "pull_request" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          status=0
+          # Keep this pathspec a superset of `on.push.paths`: both say what "the contract
+          # changed" means, and nothing but this comment keeps them in step.
+          git diff --quiet "origin/$BASE_REF...HEAD" -- contracts/ .github/workflows/contract.yml || status=$?
+          case "$status" in
+            0) changed=false ;;
+            1) changed=true ;;
+            *)
+              echo "::error::Could not diff against origin/$BASE_REF, so whether the contract changed is unknown."
+              exit 1
+              ;;
+          esac
+          echo "changed=$changed" >> "$GITHUB_OUTPUT"
+
+      - name: Contract untouched
+        if: steps.changes.outputs.changed == 'false'
+        run: echo "This pull request changes neither contracts/ nor this workflow; there is nothing to verify."
+
+      # Pinned, because the staleness check compares a fresh build with a committed one: a
+      # bun release that changed the output would fail a correct pull request with a
+      # misleading "out of date". Bump it deliberately and rebuild contracts/ when you do.
       - uses: oven-sh/setup-bun@v2
+        if: steps.changes.outputs.changed == 'true'
         with:
-          bun-version: latest
+          bun-version: "1.4.4"
 
       - name: Install dependencies
+        if: steps.changes.outputs.changed == 'true'
         working-directory: contracts
         run: bun install --frozen-lockfile
 
       - name: Compile the contract
+        if: steps.changes.outputs.changed == 'true'
         working-directory: contracts
         run: bun run build
 
       # The generated document is committed so that pull requests show the real diff of
       # the interface and so oasdiff has a baseline. This step proves it is not stale.
+      # It asks `git status`, not `git diff`: a diff only sees tracked files, so a build that
+      # wrote the contract to a new file (a changed `output-file` in tspconfig.yaml, say)
+      # would leave the committed openapi.yaml frozen and both this and oasdiff green.
       - name: Generated document is up to date
+        if: steps.changes.outputs.changed == 'true'
         run: |
-          if ! git diff --exit-code -- contracts/generated/; then
+          if [ -n "$(git status --porcelain -- contracts/generated/)" ]; then
+            git status --short -- contracts/generated/
+            git diff -- contracts/generated/
             echo "::error::contracts/generated/ is out of date. Run 'bun run build' in contracts/ and commit the result."
             exit 1
           fi
 
       - name: Install oasdiff
-        if: github.event_name == 'pull_request'
+        if: steps.changes.outputs.changed == 'true' && github.event_name == 'pull_request'
         run: |
-          curl -fsSL "https://github.com/oasdiff/oasdiff/releases/download/v${OASDIFF_VERSION}/oasdiff_${OASDIFF_VERSION}_linux_amd64.tar.gz" \
-            | sudo tar xz -C /usr/local/bin oasdiff
+          curl -fsSL -o "$RUNNER_TEMP/oasdiff.tar.gz" \
+            "https://github.com/oasdiff/oasdiff/releases/download/v${OASDIFF_VERSION}/oasdiff_${OASDIFF_VERSION}_linux_amd64.tar.gz"
+          echo "${OASDIFF_SHA256}  $RUNNER_TEMP/oasdiff.tar.gz" | sha256sum --check --strict
+          sudo tar xzf "$RUNNER_TEMP/oasdiff.tar.gz" -C /usr/local/bin oasdiff
           oasdiff --version
 
       # --fail-on ERR is not optional. Without it oasdiff prints the breaking change and
       # still exits 0, so the check reports the problem and lets the merge through.
       # Verified against oasdiff 1.34.1 on 2026-10-22.
       - name: No breaking changes
-        if: github.event_name == 'pull_request'
+        if: steps.changes.outputs.changed == 'true' && github.event_name == 'pull_request'
         run: |
-          BASE="origin/${{ github.base_ref }}"
+          BASE="origin/$BASE_REF"
+          # An unresolvable base is a failure, not a pass: the detector already chose to
+          # verify, and "no contract on the base yet" is only true of a base that exists.
+          if ! git rev-parse --verify --quiet "$BASE^{commit}" >/dev/null; then
+            echo "::error::Cannot resolve $BASE; the contract cannot be compared against it."
+            exit 1
+          fi
           if ! git cat-file -e "$BASE:contracts/generated/openapi.yaml" 2>/dev/null; then
             echo "No contract on $BASE yet; nothing to compare against."
             exit 0
           fi
-          git show "$BASE:contracts/generated/openapi.yaml" > /tmp/base-openapi.yaml
-          oasdiff breaking --fail-on ERR /tmp/base-openapi.yaml contracts/generated/openapi.yaml
+          git show "$BASE:contracts/generated/openapi.yaml" > "$RUNNER_TEMP/base-openapi.yaml"
+          oasdiff breaking --fail-on ERR "$RUNNER_TEMP/base-openapi.yaml" contracts/generated/openapi.yaml
