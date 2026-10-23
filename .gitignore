@@ -1,0 +1,7 @@
+# Component repositories are cloned into this workspace but versioned separately.
+# See scripts/bootstrap.sh
+/api/
+/web/
+/mobile/
+
+.DS_Store
