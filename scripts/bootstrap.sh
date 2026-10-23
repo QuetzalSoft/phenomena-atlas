@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Clone every Phenomena Atlas component into this workspace, or update it if present.
-# The layout this produces is assumed by CLAUDE.md and must be identical on every machine.
+# The layout this produces is assumed by AGENTS.md and must be identical on every machine.
 set -euo pipefail
 
 ORG="git@github.com:QuetzalSoft"

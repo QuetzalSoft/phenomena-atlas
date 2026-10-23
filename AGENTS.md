@@ -38,10 +38,10 @@ above must mean the same thing for everyone.
 | Scope | File | Rule |
 |---|---|---|
 | The system | this file, `docs/` | True even if a component were deleted |
-| One component | `api/CLAUDE.md`, `web/CLAUDE.md` | Dies with that component |
+| One component | `api/AGENTS.md`, `web/AGENTS.md` | Dies with that component |
 
 If you are about to write a stack detail, a build command or a directory listing here,
-it belongs in the component's own `CLAUDE.md` instead.
+it belongs in the component's own `AGENTS.md` instead.
 
 ## The contract is the interface
 
