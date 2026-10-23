@@ -9,10 +9,13 @@
 name: Contract
 
 on:
+  # No path filter on pull_request, on purpose. The `contract` job is a required status
+  # check on main, and GitHub cannot tell "filtered out by paths" from "not reported yet":
+  # a pull request the filter excludes waits for the status forever and can never merge.
+  # The same holds for a job-level `if:`, because a skipped job reports no status either.
+  # The job must run on every pull request; whether it verifies anything is decided
+  # inside it. Do not add a paths filter back here.
   pull_request:
-    paths:
-      - "contracts/**"
-      - ".github/workflows/contract.yml"
   push:
     branches: [main]
     paths:
