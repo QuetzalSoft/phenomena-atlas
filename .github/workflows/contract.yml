@@ -23,6 +23,11 @@ on:
     paths:
       - "contracts/**"
 
+# The job reads the repository and nothing else. It runs on every pull request, forks
+# included, so the token it gets stays as narrow as that.
+permissions:
+  contents: read
+
 env:
   # Bump both together. The hash is the linux_amd64 tarball's line in the release's
   # checksums.txt; pinning it here, rather than trusting a checksums.txt fetched from the
