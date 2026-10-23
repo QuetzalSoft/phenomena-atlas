@@ -91,13 +91,18 @@ Full detail in `docs/release.md`.
 
 ## `main` is protected
 
-This repository is public, and `main` is governed by a ruleset:
+All three repositories are public, and each has a ruleset on `main`. Shared by all of
+them:
 
 - Changes go through a pull request. Direct pushes are rejected.
 - One approving review is required.
-- The `contract` check must pass. A pull request carrying an incompatible contract
-  change cannot be merged, which is the mechanism ADR 0003 depends on.
 - `main` cannot be deleted or force-pushed.
+
+**In this repository only**, the `contract` check must also pass, so a pull request
+carrying an incompatible contract change cannot be merged. That is the mechanism ADR
+0003 depends on. The component repositories have no required check yet because they
+have no CI yet; adding one is part of standing up each component's test suite, and is
+not optional once there is code to test.
 
 Organisation admins can bypass all of the above, including pushing straight to `main`.
 That exists so the work does not stall while the team is still forming, not as a normal
