@@ -21,7 +21,7 @@ cd phenomena-atlas
 ```
 
 This clones every component into the right place. Always work from this layout: the
-shared context in `CLAUDE.md` assumes it, and so do the other four of us.
+shared context in `AGENTS.md` assumes it, and so do the other four of us.
 
 ## What to read first
 
