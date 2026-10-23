@@ -24,7 +24,11 @@ on:
       - "contracts/**"
 
 env:
+  # Bump both together. The hash is the linux_amd64 tarball's line in the release's
+  # checksums.txt; pinning it here, rather than trusting a checksums.txt fetched from the
+  # same release at run time, also catches a release asset replaced after the fact.
   OASDIFF_VERSION: "1.34.1"
+  OASDIFF_SHA256: "75775f65b0adebd26a8e013af51a799342dfdc6262d89efa9e3b7bdf89657d90"
 
 jobs:
   contract:
@@ -97,8 +101,10 @@ jobs:
       - name: Install oasdiff
         if: steps.changes.outputs.changed == 'true' && github.event_name == 'pull_request'
         run: |
-          curl -fsSL "https://github.com/oasdiff/oasdiff/releases/download/v${OASDIFF_VERSION}/oasdiff_${OASDIFF_VERSION}_linux_amd64.tar.gz" \
-            | sudo tar xz -C /usr/local/bin oasdiff
+          curl -fsSL -o /tmp/oasdiff.tar.gz \
+            "https://github.com/oasdiff/oasdiff/releases/download/v${OASDIFF_VERSION}/oasdiff_${OASDIFF_VERSION}_linux_amd64.tar.gz"
+          echo "${OASDIFF_SHA256}  /tmp/oasdiff.tar.gz" | sha256sum --check --strict
+          sudo tar xzf /tmp/oasdiff.tar.gz -C /usr/local/bin oasdiff
           oasdiff --version
 
       # --fail-on ERR is not optional. Without it oasdiff prints the breaking change and
