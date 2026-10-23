@@ -111,10 +111,10 @@ jobs:
       - name: Install oasdiff
         if: steps.changes.outputs.changed == 'true' && github.event_name == 'pull_request'
         run: |
-          curl -fsSL -o /tmp/oasdiff.tar.gz \
+          curl -fsSL -o "$RUNNER_TEMP/oasdiff.tar.gz" \
             "https://github.com/oasdiff/oasdiff/releases/download/v${OASDIFF_VERSION}/oasdiff_${OASDIFF_VERSION}_linux_amd64.tar.gz"
-          echo "${OASDIFF_SHA256}  /tmp/oasdiff.tar.gz" | sha256sum --check --strict
-          sudo tar xzf /tmp/oasdiff.tar.gz -C /usr/local/bin oasdiff
+          echo "${OASDIFF_SHA256}  $RUNNER_TEMP/oasdiff.tar.gz" | sha256sum --check --strict
+          sudo tar xzf "$RUNNER_TEMP/oasdiff.tar.gz" -C /usr/local/bin oasdiff
           oasdiff --version
 
       # --fail-on ERR is not optional. Without it oasdiff prints the breaking change and
@@ -134,5 +134,5 @@ jobs:
             echo "No contract on $BASE yet; nothing to compare against."
             exit 0
           fi
-          git show "$BASE:contracts/generated/openapi.yaml" > /tmp/base-openapi.yaml
-          oasdiff breaking --fail-on ERR /tmp/base-openapi.yaml contracts/generated/openapi.yaml
+          git show "$BASE:contracts/generated/openapi.yaml" > "$RUNNER_TEMP/base-openapi.yaml"
+          oasdiff breaking --fail-on ERR "$RUNNER_TEMP/base-openapi.yaml" contracts/generated/openapi.yaml
