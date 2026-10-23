@@ -16,7 +16,7 @@ on:
   # it was skipped, including a failed detector, so the check would pass unverified.
   # The job must run on every pull request and its steps decide whether to verify; that
   # way a broken detector fails the check instead of passing it. Do not add a paths filter
-  # back here, and do not move the decision to the job level.
+  # back here, and do not move the decision to the job level. See docs/adr/0004.
   pull_request:
   push:
     branches: [main]
