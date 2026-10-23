@@ -29,6 +29,11 @@ env:
 jobs:
   contract:
     runs-on: ubuntu-latest
+    env:
+      # The one definition of the base branch, read by both the detector and the
+      # breaking-change comparison, so they cannot disagree about what "the base" is.
+      # Empty on push runs, where neither step compares against a base.
+      BASE_REF: ${{ github.base_ref }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -41,10 +46,8 @@ jobs:
       # runs.
       - name: Detect contract changes
         id: changes
-        env:
-          BASE_REF: ${{ github.base_ref }}
         run: |
-          if [ "${{ github.event_name }}" != "pull_request" ]; then
+          if [ "$GITHUB_EVENT_NAME" != "pull_request" ]; then
             echo "changed=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -102,7 +105,13 @@ jobs:
       - name: No breaking changes
         if: steps.changes.outputs.changed == 'true' && github.event_name == 'pull_request'
         run: |
-          BASE="origin/${{ github.base_ref }}"
+          BASE="origin/$BASE_REF"
+          # An unresolvable base is a failure, not a pass: the detector already chose to
+          # verify, and "no contract on the base yet" is only true of a base that exists.
+          if ! git rev-parse --verify --quiet "$BASE^{commit}" >/dev/null; then
+            echo "::error::Cannot resolve $BASE; the contract cannot be compared against it."
+            exit 1
+          fi
           if ! git cat-file -e "$BASE:contracts/generated/openapi.yaml" 2>/dev/null; then
             echo "No contract on $BASE yet; nothing to compare against."
             exit 0
