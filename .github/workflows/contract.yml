@@ -90,10 +90,15 @@ jobs:
 
       # The generated document is committed so that pull requests show the real diff of
       # the interface and so oasdiff has a baseline. This step proves it is not stale.
+      # It asks `git status`, not `git diff`: a diff only sees tracked files, so a build that
+      # wrote the contract to a new file (a changed `output-file` in tspconfig.yaml, say)
+      # would leave the committed openapi.yaml frozen and both this and oasdiff green.
       - name: Generated document is up to date
         if: steps.changes.outputs.changed == 'true'
         run: |
-          if ! git diff --exit-code -- contracts/generated/; then
+          if [ -n "$(git status --porcelain -- contracts/generated/)" ]; then
+            git status --short -- contracts/generated/
+            git diff -- contracts/generated/
             echo "::error::contracts/generated/ is out of date. Run 'bun run build' in contracts/ and commit the result."
             exit 1
           fi
