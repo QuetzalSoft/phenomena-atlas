@@ -12,9 +12,11 @@ on:
   # No path filter on pull_request, on purpose. The `contract` job is a required status
   # check on main, and GitHub cannot tell "filtered out by paths" from "not reported yet":
   # a pull request the filter excludes waits for the status forever and can never merge.
-  # The same holds for a job-level `if:`, because a skipped job reports no status either.
-  # The job must run on every pull request; whether it verifies anything is decided
-  # inside it. Do not add a paths filter back here.
+  # A job-level `if:` is no substitute: a skipped job reports success whatever the reason
+  # it was skipped, including a failed detector, so the check would pass unverified.
+  # The job must run on every pull request and its steps decide whether to verify; that
+  # way a broken detector fails the check instead of passing it. Do not add a paths filter
+  # back here, and do not move the decision to the job level.
   pull_request:
   push:
     branches: [main]
