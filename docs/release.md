@@ -68,7 +68,8 @@ the one that makes it feel unnecessary.
 - [ ] Is the glossary in `docs/domain.md` still accurate?
 - [ ] Is the version bump right, judged from a client's point of view?
 - [ ] Is `contracts/generated/` committed and up to date?
-- [ ] Did the Contract workflow actually run and pass, rather than being skipped?
+- [ ] Did the `contract` check run its `No breaking changes` step and pass, rather than
+      reporting green with verification skipped?
 - [ ] Does this decision constrain future work? If yes, write an ADR.
 
 ## If the breaking-change check gets in your way
