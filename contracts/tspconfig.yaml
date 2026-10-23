@@ -1,0 +1,14 @@
+# TypeSpec build configuration.
+# The OpenAPI document under generated/ is produced from main.tsp. Never edit it by hand.
+
+emit:
+  - "@typespec/openapi3"
+
+options:
+  "@typespec/openapi3":
+    emitter-output-dir: "{project-root}/generated"
+    output-file: "openapi.yaml"
+    openapi-versions:
+      - 3.1.0
+
+warn-as-error: true

@@ -27,5 +27,6 @@ shared context in `CLAUDE.md` assumes it, and so do the other four of us.
 
 1. `docs/architecture.md` - how the pieces fit together
 2. `docs/domain.md` - the vocabulary we all use
-3. `contracts/openapi.yaml` - the API contract, source of truth
+3. `contracts/main.tsp` - the API contract, source of truth
+   (`contracts/generated/openapi.yaml` is the compiled output, never edited by hand)
 4. `docs/release.md` - how to ship a change that crosses components

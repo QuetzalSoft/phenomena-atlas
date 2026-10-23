@@ -1,0 +1,64 @@
+# Publish the contract package when its version changes.
+#
+# The version is bumped by hand in contracts/package.json as part of the contract pull
+# request, not automatically. Judging whether a change is minor or major is a decision
+# about what it does to clients, and docs/release.md has the table for it. This workflow
+# only publishes what a human already decided.
+
+name: Publish contract
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "contracts/**"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        working-directory: contracts
+        run: bun install --frozen-lockfile
+
+      - name: Build the published artifacts
+        working-directory: contracts
+        run: bun run build
+
+      - name: Skip if this version is already published
+        id: check
+        working-directory: contracts
+        run: |
+          NAME=$(bun --print "require('./package.json').name")
+          VERSION=$(bun --print "require('./package.json').version")
+          echo "Resolved $NAME@$VERSION"
+          CODE=$(curl -s -o /dev/null -w '%{http_code}' \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            "https://npm.pkg.github.com/@quetzalsoft/${NAME#@quetzalsoft/}/$VERSION")
+          if [ "$CODE" = "200" ]; then
+            echo "Already published; nothing to do."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish to GitHub Packages
+        if: steps.check.outputs.publish == 'true'
+        working-directory: contracts
+        env:
+          NPM_CONFIG_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cat > .npmrc <<'EOF'
+          @quetzalsoft:registry=https://npm.pkg.github.com
+          //npm.pkg.github.com/:_authToken=${NPM_CONFIG_TOKEN}
+          EOF
+          bun publish --access restricted
