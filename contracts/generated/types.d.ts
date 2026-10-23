@@ -79,7 +79,7 @@ export interface components {
         };
         Health: {
             /** @enum {string} */
-            status: "ok";
+            state: "ok";
         };
     };
     responses: never;
