@@ -78,10 +78,13 @@ jobs:
         if: steps.changes.outputs.changed == 'false'
         run: echo "This pull request changes neither contracts/ nor this workflow; there is nothing to verify."
 
+      # Pinned, because the staleness check compares a fresh build with a committed one: a
+      # bun release that changed the output would fail a correct pull request with a
+      # misleading "out of date". Bump it deliberately and rebuild contracts/ when you do.
       - uses: oven-sh/setup-bun@v2
         if: steps.changes.outputs.changed == 'true'
         with:
-          bun-version: latest
+          bun-version: "1.4.4"
 
       - name: Install dependencies
         if: steps.changes.outputs.changed == 'true'
