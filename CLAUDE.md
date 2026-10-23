@@ -88,3 +88,19 @@ Full detail in `docs/release.md`.
 - Trunk-based: short-lived branches off `main`, pull requests, no long-running branches.
 - Work is tracked on the org-level GitHub Project "Phenomena Atlas", not per repository.
 - Record a decision as an ADR in `docs/adr/` when it constrains future work.
+
+## `main` is protected
+
+This repository is public, and `main` is governed by a ruleset:
+
+- Changes go through a pull request. Direct pushes are rejected.
+- One approving review is required.
+- The `contract` check must pass. A pull request carrying an incompatible contract
+  change cannot be merged, which is the mechanism ADR 0003 depends on.
+- `main` cannot be deleted or force-pushed.
+
+Organisation admins can bypass all of the above, including pushing straight to `main`.
+That exists so the work does not stall while the team is still forming, not as a normal
+route. Bypassing the `contract` check merges a change that a pinned client cannot
+survive; `docs/release.md` explains why that is expensive to undo once the mobile
+application is shipping.
