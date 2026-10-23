@@ -1,0 +1,39 @@
+{
+  "name": "@quetzalsoft/phenomena-atlas-contract",
+  "version": "0.0.0",
+  "description": "The Phenomena Atlas API contract: the OpenAPI document and its TypeScript types.",
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/QuetzalSoft/phenomena-atlas.git",
+    "directory": "contracts"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
+  "files": [
+    "generated/openapi.yaml",
+    "generated/types.d.ts"
+  ],
+  "types": "./generated/types.d.ts",
+  "exports": {
+    ".": {
+      "types": "./generated/types.d.ts"
+    },
+    "./openapi.yaml": "./generated/openapi.yaml"
+  },
+  "scripts": {
+    "compile": "bun --bun ./node_modules/.bin/tsp compile .",
+    "types": "bun --bun ./node_modules/.bin/openapi-typescript generated/openapi.yaml -o generated/types.d.ts",
+    "build": "bun run compile && bun run types",
+    "format": "bun --bun ./node_modules/.bin/tsp format \"**/*.tsp\""
+  },
+  "devDependencies": {
+    "@typespec/compiler": "1.17.0",
+    "@typespec/http": "1.17.0",
+    "@typespec/openapi": "1.17.0",
+    "@typespec/openapi3": "1.17.0",
+    "@typespec/rest": "0.87.0",
+    "openapi-typescript": "7.13.0"
+  }
+}

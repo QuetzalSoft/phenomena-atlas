@@ -1,0 +1,184 @@
+openapi: 3.1.0
+info:
+  title: Phenomena Atlas API
+  version: 0.0.0
+  summary: The API behind Phenomena Atlas, consumed by the web and mobile clients.
+  description: |-
+    Every Phenomena Atlas client reaches domain data through this API. No client talks
+    to the database directly.
+
+    Version 0.0.0 means the contract has not been designed yet. The first real version
+    depends on the domain glossary in ../docs/domain.md being filled in.
+tags: []
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      summary: Liveness probe.
+      description: |-
+        Returns successfully when the service is running. Carries no domain meaning and
+        is safe to call without authentication.
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+      security:
+        - {}
+security:
+  - BearerAuth: []
+components:
+  schemas:
+    Error:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          description: Stable machine-readable identifier. Clients branch on this, never on message.
+          examples:
+            - phenomenon_not_found
+        message:
+          type: string
+          description: Human-readable explanation. Not stable, not for client logic.
+        details:
+          type: object
+          additionalProperties: {}
+          description: Optional structured context. Its shape depends on code.
+      description: The error shape returned by every failing request.
+    GeoJson.BoundingBox:
+      type: array
+      items:
+        type: number
+        format: double
+      minItems: 4
+      maxItems: 4
+      description: 'A bounding box: south-west corner followed by north-east corner.'
+    GeoJson.Geometry:
+      anyOf:
+        - $ref: '#/components/schemas/GeoJson.Point'
+        - $ref: '#/components/schemas/GeoJson.LineString'
+        - $ref: '#/components/schemas/GeoJson.Polygon'
+        - $ref: '#/components/schemas/GeoJson.MultiPoint'
+        - $ref: '#/components/schemas/GeoJson.MultiPolygon'
+      description: Any GeoJSON geometry.
+    GeoJson.LineString:
+      type: object
+      required:
+        - type
+        - coordinates
+      properties:
+        type:
+          type: string
+          enum:
+            - LineString
+        coordinates:
+          type: array
+          items:
+            type: array
+            items:
+              type: number
+              format: double
+          minItems: 2
+      description: A connected sequence of positions.
+    GeoJson.MultiPoint:
+      type: object
+      required:
+        - type
+        - coordinates
+      properties:
+        type:
+          type: string
+          enum:
+            - MultiPoint
+        coordinates:
+          type: array
+          items:
+            type: array
+            items:
+              type: number
+              format: double
+      description: Several separate locations treated as one geometry.
+    GeoJson.MultiPolygon:
+      type: object
+      required:
+        - type
+        - coordinates
+      properties:
+        type:
+          type: string
+          enum:
+            - MultiPolygon
+        coordinates:
+          type: array
+          items:
+            type: array
+            items:
+              type: array
+              items:
+                type: array
+                items:
+                  type: number
+                  format: double
+      description: Several separate areas treated as one geometry.
+    GeoJson.Point:
+      type: object
+      required:
+        - type
+        - coordinates
+      properties:
+        type:
+          type: string
+          enum:
+            - Point
+        coordinates:
+          type: array
+          items:
+            type: number
+            format: double
+          minItems: 2
+          maxItems: 3
+      description: A single location.
+    GeoJson.Polygon:
+      type: object
+      required:
+        - type
+        - coordinates
+      properties:
+        type:
+          type: string
+          enum:
+            - Polygon
+        coordinates:
+          type: array
+          items:
+            type: array
+            items:
+              type: array
+              items:
+                type: number
+                format: double
+          minItems: 1
+      description: An area. The first ring is the outer boundary; any further rings are holes.
+    Health:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum:
+            - ok
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: Bearer
+servers:
+  - url: http://localhost:8000
+    description: Local development
+    variables: {}

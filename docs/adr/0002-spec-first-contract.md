@@ -1,6 +1,6 @@
 # 0002 - The API specification is written before the code
 
-- Status: accepted
+- Status: accepted, amended by `0003-typespec-authoring-openapi-artifact.md`
 - Date: 2026-10-22
 
 ## Context

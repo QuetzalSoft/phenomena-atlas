@@ -29,5 +29,6 @@ happen before the first endpoint is written, because the contract depends on it.
 
 - English everywhere, including identifiers in the database and the contract.
 - Singular for an entity (`phenomenon`), plural for a collection endpoint (`/phenomena`).
-- The name used in `contracts/openapi.yaml` wins. If the database or a client disagrees
+- Geometries are not redefined per entity. They come from `contracts/lib/geojson.tsp`.
+- The name used in `contracts/main.tsp` wins. If the database or a client disagrees
   with the contract, the contract is right and the other side is a bug.
