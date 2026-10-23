@@ -168,9 +168,9 @@ components:
     Health:
       type: object
       required:
-        - status
+        - state
       properties:
-        status:
+        state:
           type: string
           enum:
             - ok

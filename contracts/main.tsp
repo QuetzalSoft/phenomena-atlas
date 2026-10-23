@@ -47,7 +47,7 @@ model Error {
 }
 
 model Health {
-  status: "ok";
+  state: "ok";
 }
 
 @doc("""
