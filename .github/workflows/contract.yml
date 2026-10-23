@@ -46,8 +46,8 @@ jobs:
 
       # The only gate on whether the contract is verified. It has to live at step level:
       # see the comment on `on:` for why neither a path filter nor a job-level `if:` may
-      # make this decision. It fails closed: if git cannot answer, the full verification
-      # runs.
+      # make this decision. It fails closed: if git cannot answer, the check fails here
+      # rather than skipping verification it cannot prove is unnecessary.
       - name: Detect contract changes
         id: changes
         run: |
@@ -63,8 +63,8 @@ jobs:
             0) changed=false ;;
             1) changed=true ;;
             *)
-              echo "::warning::Could not diff against origin/$BASE_REF; running the full contract verification."
-              changed=true
+              echo "::error::Could not diff against origin/$BASE_REF, so whether the contract changed is unknown."
+              exit 1
               ;;
           esac
           echo "changed=$changed" >> "$GITHUB_OUTPUT"
