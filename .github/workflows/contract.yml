@@ -52,6 +52,8 @@ jobs:
             exit 0
           fi
           status=0
+          # Keep this pathspec a superset of `on.push.paths`: both say what "the contract
+          # changed" means, and nothing but this comment keeps them in step.
           git diff --quiet "origin/$BASE_REF...HEAD" -- contracts/ .github/workflows/contract.yml || status=$?
           case "$status" in
             0) changed=false ;;
@@ -65,7 +67,7 @@ jobs:
 
       - name: Contract untouched
         if: steps.changes.outputs.changed == 'false'
-        run: echo "This pull request changes nothing under contracts/; there is no contract to verify."
+        run: echo "This pull request changes neither contracts/ nor this workflow; there is nothing to verify."
 
       - uses: oven-sh/setup-bun@v2
         if: steps.changes.outputs.changed == 'true'
