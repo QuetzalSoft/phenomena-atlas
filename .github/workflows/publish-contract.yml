@@ -4,12 +4,17 @@
 # request, not automatically. Judging whether a change is minor or major is a decision
 # about what it does to clients, and docs/release.md has the table for it. This workflow
 # only publishes what a human already decided.
+#
+# A merge into develop publishes a prerelease, X.Y.Z-dev.N under the `next` dist-tag, so
+# the components' develop branches can build against a contract that is not in
+# production yet. A merge into main publishes the stable X.Y.Z under `latest`. See
+# docs/adr/0005.
 
 name: Publish contract
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
     paths:
       - "contracts/**"
 
@@ -22,9 +27,10 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      # Same pin as contract.yml, so what is published is what the staleness check built.
       - uses: oven-sh/setup-bun@v2
         with:
-          bun-version: latest
+          bun-version: "1.4.4"
 
       - name: Install dependencies
         working-directory: contracts
@@ -34,31 +40,66 @@ jobs:
         working-directory: contracts
         run: bun run build
 
-      - name: Skip if this version is already published
+      - name: Decide what to publish
         id: check
         working-directory: contracts
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_NUMBER: ${{ github.run_number }}
         run: |
           NAME=$(bun --print "require('./package.json').name")
-          VERSION=$(bun --print "require('./package.json').version")
-          echo "Resolved $NAME@$VERSION"
-          CODE=$(curl -s -o /dev/null -w '%{http_code}' \
-            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-            "https://npm.pkg.github.com/@quetzalsoft/${NAME#@quetzalsoft/}/$VERSION")
-          if [ "$CODE" = "200" ]; then
-            echo "Already published; nothing to do."
+          STABLE=$(bun --print "require('./package.json').version")
+          echo "Resolved $NAME@$STABLE"
+
+          published() {
+            CODE=$(curl -s -o /dev/null -w '%{http_code}' \
+              -H "Authorization: Bearer $TOKEN" \
+              "https://npm.pkg.github.com/@quetzalsoft/${NAME#@quetzalsoft/}/$1")
+            [ "$CODE" = "200" ]
+          }
+
+          if [ "$GITHUB_REF_NAME" = "main" ]; then
+            VERSION="$STABLE"
+            TAG=latest
+          else
+            # A prerelease of a version that is already out sorts below it, so a client
+            # following `next` would be offered an older contract than `latest`.
+            if published "$STABLE"; then
+              echo "$STABLE is already released; bump the version in contracts/package.json to publish a prerelease."
+              echo "publish=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            VERSION="$STABLE-dev.$RUN_NUMBER"
+            TAG=next
+          fi
+
+          if published "$VERSION"; then
+            echo "$VERSION is already published; nothing to do."
             echo "publish=false" >> "$GITHUB_OUTPUT"
           else
+            echo "Publishing $VERSION as $TAG."
             echo "publish=true" >> "$GITHUB_OUTPUT"
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+            echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Set the prerelease version
+        if: steps.check.outputs.publish == 'true' && steps.check.outputs.tag == 'next'
+        working-directory: contracts
+        env:
+          VERSION: ${{ steps.check.outputs.version }}
+        run: |
+          bun -e 'const p = await Bun.file("package.json").json(); p.version = process.env.VERSION; await Bun.write("package.json", JSON.stringify(p, null, 2) + "\n");'
 
       - name: Publish to GitHub Packages
         if: steps.check.outputs.publish == 'true'
         working-directory: contracts
         env:
           NPM_CONFIG_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.check.outputs.tag }}
         run: |
           cat > .npmrc <<'EOF'
           @quetzalsoft:registry=https://npm.pkg.github.com
           //npm.pkg.github.com/:_authToken=${NPM_CONFIG_TOKEN}
           EOF
-          bun publish --access restricted
+          bun publish --access restricted --tag "$TAG"
