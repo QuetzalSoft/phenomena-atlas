@@ -19,7 +19,7 @@ on:
   # back here, and do not move the decision to the job level. See docs/adr/0004.
   pull_request:
   push:
-    branches: [main]
+    branches: [main, develop]
     paths:
       - "contracts/**"
 
