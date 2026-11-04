@@ -61,7 +61,8 @@ regenerates the TypeScript types. The scripts invoke the TypeSpec compiler throu
 The spec is published as a versioned package, `@quetzalsoft/phenomena-atlas-contract`,
 carrying both the OpenAPI document and the generated types. Clients pin a version.
 Release is triggered only by changes under `contracts/**`; documentation changes do not
-bump it.
+bump it. A merge into `develop` publishes a prerelease under the `next` dist-tag, a merge
+into `main` the stable version under `latest`.
 
 A pull request that introduces an incompatible change fails CI. See ADR 0003: that check
 is what replaces the safety protobuf would have given, and it is not advisory.
@@ -71,8 +72,9 @@ is what replaces the safety protobuf would have given, and it is not advisory.
 Three pull requests, in this order, never merged out of order:
 
 1. **This repo** - change `contracts/main.tsp`, run `bun run build`, bump the version in
-   `contracts/package.json`, commit the regenerated document, merge. A new contract
-   version publishes.
+   `contracts/package.json`, commit the regenerated document, merge into `develop`. A
+   prerelease `X.Y.Z-dev.N` publishes; the stable `X.Y.Z` publishes when it reaches
+   `main`.
 2. **`api/`** - bump the contract dependency, implement, conformance test proves it.
 3. **`web/` and `mobile/`** - bump the contract dependency, consume the new types.
 
@@ -85,24 +87,33 @@ Full detail in `docs/release.md`.
 ## Conventions
 
 - All project text is English: code, comments, commits, documentation, issue titles.
-- Trunk-based: short-lived branches off `main`, pull requests, no long-running branches.
+- `main` is production, `develop` integrates the sprint (ADR 0005). Branch off `develop`
+  and open pull requests into it. `main` only takes releases from `develop` and fixes
+  from `hotfix/*`; a hotfix is back-merged from `main` into `develop`.
 - Work is tracked on the org-level GitHub Project "Phenomena Atlas", not per repository.
 - Record a decision as an ADR in `docs/adr/` when it constrains future work.
 
-## `main` is protected
+## `main` and `develop` are protected
 
-All three repositories are public, and each has a ruleset on `main`. Shared by all of
-them:
+All three repositories are public, and each has a ruleset on `main` and another on
+`develop`. Shared by all of them:
 
 - Changes go through a pull request. Direct pushes are rejected.
 - One approving review is required.
-- `main` cannot be deleted or force-pushed.
+- Neither branch can be deleted or force-pushed.
 
-**In this repository only**, the `contract` check must also pass, so a pull request
-carrying an incompatible contract change cannot be merged. That is the mechanism ADR
-0003 depends on. The component repositories have no required check yet because they
-have no CI yet; adding one is part of standing up each component's test suite, and is
-not optional once there is code to test.
+On `main` only, in every repository:
+
+- Pull requests merge with a merge commit; squash and rebase are disabled, so `main`
+  never gains commits `develop` lacks.
+- The `source-branch` check must pass. It rejects any pull request that does not come
+  from `develop` or `hotfix/*` in the same repository.
+
+**In this repository only**, the `contract` check must also pass, on both branches, so a
+pull request carrying an incompatible contract change cannot be merged. That is the
+mechanism ADR 0003 depends on. The component repositories have no other required check
+yet because they have no test suite yet; adding one is part of standing up each
+component's test suite, and is not optional once there is code to test.
 
 Organisation admins can bypass all of the above, including pushing straight to `main`.
 That exists so the work does not stall while the team is still forming, not as a normal
