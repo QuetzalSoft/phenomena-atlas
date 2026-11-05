@@ -79,10 +79,11 @@ Native with Expo. Because every client is TypeScript, all three can consume the 
 generated types from the contract package; the contract itself stays language-neutral so
 that third parties are not shut out.
 
-## Open decisions
+**The API uses NestJS and PostgreSQL with PostGIS.** Its internal structure follows
+domain-driven-hexagon, and conformance is proved by validating real responses against the
+pinned OpenAPI document. See `adr/0006-api-framework-and-architecture.md`. The design itself
+is in `docs/architecture.md` in the API repository.
 
-> TODO(team): the API framework is not chosen yet. Nothing in the contract depends on it.
-> The choice does determine which conformance-testing tool proves the API matches the
-> specification, which is a required piece.
+## Open decisions
 
 > TODO(team): hosting, environments and deploy triggers, as noted above.
