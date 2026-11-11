@@ -13,7 +13,12 @@ export interface paths {
         };
         /**
          * List accounts.
-         * @description Lists every account and its role, oldest first.
+         * @description Lists accounts and their roles, oldest first. Every filter is optional, and the ones
+         *     given combine: an account is listed only when it matches all of them.
+         *
+         *     A cursor is only valid with the filters of the request that returned it; pass the same
+         *     filters again with it. When both dates are given, `createdFrom` must be earlier than
+         *     `createdBefore`, or the API answers 400 with the code `invalid_date_range`.
          */
         get: operations["Accounts_listAccounts"];
         put?: never;
@@ -194,6 +199,17 @@ export interface operations {
                 limit?: number;
                 /** @description The `nextCursor` of the previous page. */
                 cursor?: string;
+                /** @description Only accounts with this role. */
+                role?: components["schemas"]["Role"];
+                /**
+                 * @description Only accounts whose username, name or email contains this text, ignoring case.
+                 *     Every character is taken literally.
+                 */
+                q?: string;
+                /** @description Only accounts created at or after this instant. */
+                createdFrom?: string;
+                /** @description Only accounts created before this instant. Together with `createdFrom`, a half-open range. */
+                createdBefore?: string;
             };
             header?: never;
             path?: never;
