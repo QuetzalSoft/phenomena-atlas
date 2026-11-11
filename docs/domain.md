@@ -65,6 +65,40 @@ reports.
 Anyone calling without a valid token. Not a role: it can only browse and query phenomena
 and their index.
 
+### Metropolitan area
+
+The part of the world the atlas covers: the municipalities of Guadalajara, Zapopan, San
+Pedro Tlaquepaque and Tonalá, in Jalisco. It is the union of their municipality
+boundaries.
+
+### Municipality
+
+One of the four municipalities of the metropolitan area, identified by its five-digit
+INEGI key (for example `14039` for Guadalajara), with its name and its boundary from
+INEGI's census 2020 Marco Geoestadístico. Municipalities are reference data: loaded once,
+never edited through the API. See ADR 0010.
+
+### Region
+
+An area of the metropolitan area that the maps paint in its own colour. It has an id, a
+name, a population and the municipality it lies in, and its shape is a multipolygon
+entirely inside that municipality. The id is a positive integer assigned by the API. It
+never changes and is never reused, so it is how anything refers to a region. Names may
+repeat. See ADR 0011.
+
+### Region partition
+
+The set of regions that, together, cover the metropolitan area exactly: no two overlap
+and no point is left out. Admins change it; everyone can read it. It is always valid,
+because the API refuses any change that would break it.
+
+### Partition version
+
+One saved state of the region partition. Every change an admin saves creates the next
+version, numbered from 1, recording who saved it, when, and which regions it added,
+changed and retired. Versions are immutable and all of them stay readable. Version 1 is
+the initial load from the colonias of each municipality.
+
 ### (further terms)
 
 > TODO(team): add one section per term as the model takes shape. Likely candidates based

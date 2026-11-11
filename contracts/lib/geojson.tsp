@@ -21,10 +21,11 @@ namespace PhenomenaAtlas.GeoJson;
 // A coordinate: longitude, latitude, and optional altitude in metres. 2 or 3 numbers.
 alias Position = float64[];
 
-@doc("A bounding box: south-west corner followed by north-east corner.")
-@minItems(4)
-@maxItems(4)
-model BoundingBox is float64[];
+// A bounding box: south-west corner followed by north-east corner. 4 numbers.
+// An alias for the same reason as Position: a Feature nested in a FeatureCollection
+// references it at a second depth, and as a model it was emitted twice. Every property
+// of this type spells out @minItems(4) @maxItems(4).
+alias BoundingBox = float64[];
 
 @doc("A single location.")
 model Point {
@@ -73,11 +74,24 @@ union Geometry {
 }
 
 @doc("A geometry with domain data attached to it.")
-model Feature<TProperties> {
+model Feature<TProperties, TGeometry extends Geometry = Geometry> {
   type: "Feature";
-  geometry: Geometry;
+  geometry: TGeometry;
   properties: TProperties;
 
   @doc("Extent of the geometry. Optional, and only an optimisation for clients.")
+  @minItems(4)
+  @maxItems(4)
+  bbox?: BoundingBox;
+}
+
+@doc("Several features delivered together.")
+model FeatureCollection<TFeature> {
+  type: "FeatureCollection";
+  features: TFeature[];
+
+  @doc("Extent of all the features. Optional, and only an optimisation for clients.")
+  @minItems(4)
+  @maxItems(4)
   bbox?: BoundingBox;
 }
