@@ -84,6 +84,15 @@ domain-driven-hexagon, and conformance is proved by validating real responses ag
 pinned OpenAPI document. See `adr/0006-api-framework-and-architecture.md`. The design itself
 is in `docs/architecture.md` in the API repository.
 
+**The web client uses Next.js and MapLibre GL JS.** Pages are rendered on the server so that
+phenomena can be indexed and shared, and the map is a client component. The Next.js server
+is not a backend: it reaches data only through the API, like any other client. See
+`adr/0007-web-framework-and-map.md`. The design itself is in `docs/architecture.md` in the
+web repository.
+
 ## Open decisions
 
 > TODO(team): hosting, environments and deploy triggers, as noted above.
+
+> TODO(team): the basemap tile provider for the web map. The style URL is configuration, so
+> this changes no code, but it has cost, usage limits and attribution consequences.
