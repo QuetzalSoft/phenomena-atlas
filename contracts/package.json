@@ -1,6 +1,6 @@
 {
   "name": "@quetzalsoft/phenomena-atlas-contract",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "The Phenomena Atlas API contract: the OpenAPI document and its TypeScript types.",
   "license": "UNLICENSED",
   "repository": {

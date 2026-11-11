@@ -4,6 +4,68 @@
  */
 
 export interface paths {
+    "/accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List accounts.
+         * @description Lists every account and its role, oldest first.
+         */
+        get: operations["Accounts_listAccounts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/accounts/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The caller's account.
+         * @description Returns the caller's own account, creating it with the role `user` on the first call.
+         *     Clients use it to learn which role the signed-in person holds.
+         */
+        get: operations["Accounts_getMyAccount"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/accounts/{accountId}/role": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change an account's role.
+         * @description Changes an account's role. Admins cannot change their own role, which answers 403 with
+         *     the code `own_role_change_forbidden`; this keeps the system from losing its last admin.
+         */
+        put: operations["Accounts_changeAccountRole"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -29,6 +91,35 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * @description A person known to the API, created the first time they call it with a valid token.
+         *     The profile fields are copied from that token and refreshed when they change.
+         */
+        Account: {
+            /**
+             * Format: uuid
+             * @description The API's own identifier for the account.
+             */
+            id: string;
+            /** @description The login name the identity provider reports. Absent until the person first signs in. */
+            username?: string;
+            /** @description The person's display name, when the identity provider has one. */
+            name?: string;
+            /** @description The person's email address, when the identity provider has one. */
+            email?: string;
+            role: components["schemas"]["Role"];
+            /**
+             * Format: date-time
+             * @description When the account was created.
+             */
+            createdAt: string;
+        };
+        /** @description One page of accounts, oldest first. */
+        AccountPage: {
+            items: components["schemas"]["Account"][];
+            /** @description Pass as `cursor` to get the next page. Absent on the last page. */
+            nextCursor?: string;
+        };
         /** @description The error shape returned by every failing request. */
         Error: {
             /**
@@ -81,6 +172,12 @@ export interface components {
             /** @enum {string} */
             status: "ok";
         };
+        /**
+         * @description What an account may do. Each role includes everything the role before it can do:
+         *     user, then analyst, then admin.
+         * @enum {string}
+         */
+        Role: "user" | "analyst" | "admin";
     };
     responses: never;
     parameters: never;
@@ -90,6 +187,154 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    Accounts_listAccounts: {
+        parameters: {
+            query?: {
+                /** @description How many accounts to return. Defaults to 50. */
+                limit?: number;
+                /** @description The `nextCursor` of the previous page. */
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountPage"];
+                };
+            };
+            /** @description The request does not match the contract. `details` lists what was wrong. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The access token is missing, invalid or expired. */
+            401: {
+                headers: {
+                    "WWW-Authenticate": "Bearer";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The caller's role does not allow this operation, or the operation's own rules forbid it. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    Accounts_getMyAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Account"];
+                };
+            };
+            /** @description The access token is missing, invalid or expired. */
+            401: {
+                headers: {
+                    "WWW-Authenticate": "Bearer";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    Accounts_changeAccountRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                accountId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    role: components["schemas"]["Role"];
+                };
+            };
+        };
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Account"];
+                };
+            };
+            /** @description The request does not match the contract. `details` lists what was wrong. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The access token is missing, invalid or expired. */
+            401: {
+                headers: {
+                    "WWW-Authenticate": "Bearer";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The caller's role does not allow this operation, or the operation's own rules forbid it. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The resource does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     getHealth: {
         parameters: {
             query?: never;

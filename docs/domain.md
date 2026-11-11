@@ -32,6 +32,13 @@ The value that results from weighting all the incident reports of a phenomenon. 
 what the maps show, and everyone can see it, anonymous visitors included. The weighting
 function is not defined yet (#24).
 
+### Account
+
+A person known to the API. It is created, with the role user, the first time that person
+calls the API with a valid token, and is keyed by the identity provider's id for them. It
+keeps a copy of their username, name and email from that token, so admins can tell
+accounts apart. Credentials are not part of it; they stay in the identity provider.
+
 ### Role
 
 What an account is allowed to do. There are three, in a hierarchy where each includes
