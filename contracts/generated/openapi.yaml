@@ -15,7 +15,13 @@ paths:
     get:
       operationId: Accounts_listAccounts
       summary: List accounts.
-      description: Lists every account and its role, oldest first.
+      description: |-
+        Lists accounts and their roles, oldest first. Every filter is optional, and the ones
+        given combine: an account is listed only when it matches all of them.
+
+        A cursor is only valid with the filters of the request that returned it; pass the same
+        filters again with it. When both dates are given, `createdFrom` must be earlier than
+        `createdBefore`, or the API answers 400 with the code `invalid_date_range`.
       parameters:
         - name: limit
           in: query
@@ -33,6 +39,40 @@ paths:
           description: The `nextCursor` of the previous page.
           schema:
             type: string
+          explode: false
+        - name: role
+          in: query
+          required: false
+          description: Only accounts with this role.
+          schema:
+            $ref: '#/components/schemas/Role'
+          explode: false
+        - name: q
+          in: query
+          required: false
+          description: |-
+            Only accounts whose username, name or email contains this text, ignoring case.
+            Every character is taken literally.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+          explode: false
+        - name: createdFrom
+          in: query
+          required: false
+          description: Only accounts created at or after this instant.
+          schema:
+            type: string
+            format: date-time
+          explode: false
+        - name: createdBefore
+          in: query
+          required: false
+          description: Only accounts created before this instant. Together with `createdFrom`, a half-open range.
+          schema:
+            type: string
+            format: date-time
           explode: false
       responses:
         '200':

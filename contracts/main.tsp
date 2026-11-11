@@ -156,7 +156,14 @@ namespace Accounts {
   @extension("x-minimum-role", "user")
   op getMyAccount(): Account | UnauthorizedError;
 
-  @doc("Lists every account and its role, oldest first.")
+  @doc("""
+    Lists accounts and their roles, oldest first. Every filter is optional, and the ones
+    given combine: an account is listed only when it matches all of them.
+
+    A cursor is only valid with the filters of the request that returned it; pass the same
+    filters again with it. When both dates are given, `createdFrom` must be earlier than
+    `createdBefore`, or the API answers 400 with the code `invalid_date_range`.
+    """)
   @summary("List accounts.")
   @get
   @extension("x-minimum-role", "admin")
@@ -170,6 +177,27 @@ namespace Accounts {
     @doc("The `nextCursor` of the previous page.")
     @query
     cursor?: string,
+
+    @doc("Only accounts with this role.")
+    @query
+    role?: Role,
+
+    @doc("""
+      Only accounts whose username, name or email contains this text, ignoring case.
+      Every character is taken literally.
+      """)
+    @query
+    @minLength(1)
+    @maxLength(100)
+    q?: string,
+
+    @doc("Only accounts created at or after this instant.")
+    @query
+    createdFrom?: utcDateTime,
+
+    @doc("Only accounts created before this instant. Together with `createdFrom`, a half-open range.")
+    @query
+    createdBefore?: utcDateTime,
   ): AccountPage | BadRequestError | UnauthorizedError | ForbiddenError;
 
   @doc("""
