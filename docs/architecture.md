@@ -90,6 +90,11 @@ is not a backend: it reaches data only through the API, like any other client. S
 `adr/0007-web-framework-and-map.md`. The design itself is in `docs/architecture.md` in the
 web repository.
 
+**Users authenticate with a self-hosted Keycloak.** It issues OpenID Connect tokens, and the
+API checks them on every operation the contract protects. Roles and permissions live in
+the API database and are enforced there, never read from the token. See
+`adr/0008-authentication-with-keycloak.md`.
+
 ## Open decisions
 
 > TODO(team): hosting, environments and deploy triggers, as noted above.
