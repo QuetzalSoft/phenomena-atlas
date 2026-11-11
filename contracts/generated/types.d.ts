@@ -92,6 +92,111 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/municipalities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List municipalities.
+         * @description Returns the four municipalities of the metropolitan area with their boundaries.
+         */
+        get: operations["Regions_listMunicipalities"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/region-partition": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The current region partition.
+         * @description Returns every region of the latest partition version. Answers 404 with the code
+         *     `partition_not_loaded` before the initial partition is loaded.
+         */
+        get: operations["Regions_getRegionPartition"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/region-partition/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List partition versions.
+         * @description Lists the saved partition versions and what each one changed, newest first.
+         */
+        get: operations["Regions_listPartitionVersions"];
+        put?: never;
+        /**
+         * Save a partition version.
+         * @description Saves a change to the region partition as the next version. The change is applied
+         *     atomically and then validated; if any rule fails, nothing is saved.
+         *
+         *     Errors, each with its own `code`. In `details`, `regionIds` lists the existing regions
+         *     involved, `draftIndexes` the positions in `regions` of new ones, and `geometry` the
+         *     offending area when there is one:
+         *
+         *     - 400 `empty_change`: no region to create, change or retire.
+         *     - 400 `duplicate_region_in_change`: a region appears more than once.
+         *     - 400 `region_not_found`: an id that does not exist or was already retired.
+         *     - 400 `invalid_geometry`: a geometry that is empty or not valid.
+         *     - 400 `region_crosses_municipality`: a region reaches into another municipality, or
+         *       a changed region moves to another municipality.
+         *     - 400 `region_out_of_area`: a region reaches outside the metropolitan area.
+         *     - 400 `region_overlap`: two regions overlap.
+         *     - 400 `partition_gap`: part of a municipality is left without a region.
+         *     - 409 `partition_version_conflict`: `baseVersion` is no longer the latest version.
+         *
+         *     Overlaps and gaps under one square metre are tolerated. Coordinates are returned
+         *     exactly as stored, so geometries built from them match their neighbours' borders.
+         */
+        post: operations["Regions_savePartitionVersion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/region-partition/versions/{number}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A past region partition.
+         * @description Returns every region as it was in one partition version. Answers 404 with the code
+         *     `partition_version_not_found` when there is no such version.
+         */
+        get: operations["Regions_getPartitionVersion"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -139,8 +244,6 @@ export interface components {
                 [key: string]: unknown;
             };
         };
-        /** @description A bounding box: south-west corner followed by north-east corner. */
-        "GeoJson.BoundingBox": number[];
         /** @description Any GeoJSON geometry. */
         "GeoJson.Geometry": components["schemas"]["GeoJson.Point"] | components["schemas"]["GeoJson.LineString"] | components["schemas"]["GeoJson.Polygon"] | components["schemas"]["GeoJson.MultiPoint"] | components["schemas"]["GeoJson.MultiPolygon"];
         /** @description A connected sequence of positions. */
@@ -176,6 +279,133 @@ export interface components {
         Health: {
             /** @enum {string} */
             status: "ok";
+        };
+        /** @description One municipality of the metropolitan area, with its INEGI boundary. */
+        Municipality: {
+            /** @enum {string} */
+            type: "Feature";
+            geometry: components["schemas"]["GeoJson.MultiPolygon"];
+            properties: components["schemas"]["MunicipalityProperties"];
+            /** @description Extent of the geometry. Optional, and only an optimisation for clients. */
+            bbox?: number[];
+            id: components["schemas"]["MunicipalityCode"];
+        };
+        /**
+         * @description A municipality's five-digit INEGI key: state then municipality, e.g. `14039`.
+         * @example 14039
+         */
+        MunicipalityCode: string;
+        /** @description The four municipalities of the metropolitan area. */
+        MunicipalityCollection: {
+            /** @enum {string} */
+            type: "FeatureCollection";
+            features: components["schemas"]["Municipality"][];
+            /** @description Extent of all the features. Optional, and only an optimisation for clients. */
+            bbox?: number[];
+        };
+        MunicipalityProperties: {
+            /** @description The municipality's name as INEGI writes it. */
+            name: string;
+        };
+        /** @description A change to the region partition, applied as a whole or not at all. */
+        PartitionChange: {
+            /**
+             * Format: int32
+             * @description The version the change was made against. It must still be the latest.
+             */
+            baseVersion: number;
+            /** @description Regions to create or change. Each region appears at most once. */
+            regions: components["schemas"]["RegionDraft"][];
+            /** @description Regions to retire. Their area must be covered by the regions above. */
+            retiredRegionIds: components["schemas"]["RegionId"][];
+        };
+        /** @description One saved state of the region partition, and what it changed. */
+        PartitionVersion: {
+            /** Format: int32 */
+            number: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** @description The admin who saved it. Absent for version 1, the initial load. */
+            author?: components["schemas"]["PartitionVersionAuthor"];
+            /** @description Regions this version created. */
+            added: components["schemas"]["RegionId"][];
+            /** @description Regions this version renamed, reshaped or gave a new population. */
+            changed: components["schemas"]["RegionId"][];
+            /** @description Regions this version retired. */
+            retired: components["schemas"]["RegionId"][];
+        };
+        /** @description Who saved a partition version. */
+        PartitionVersionAuthor: {
+            /** Format: uuid */
+            id: string;
+            username?: string;
+            name?: string;
+        };
+        /** @description One page of partition versions, newest first. */
+        PartitionVersionPage: {
+            items: components["schemas"]["PartitionVersion"][];
+            /** @description Pass as `cursor` to get the next page. Absent on the last page. */
+            nextCursor?: string;
+        };
+        /** @description An area of the metropolitan area that the maps paint in its own colour. */
+        Region: {
+            /** @enum {string} */
+            type: "Feature";
+            geometry: components["schemas"]["GeoJson.MultiPolygon"];
+            properties: components["schemas"]["RegionProperties"];
+            /** @description Extent of the geometry. Optional, and only an optimisation for clients. */
+            bbox?: number[];
+            id: components["schemas"]["RegionId"];
+        };
+        /** @description A region as a change sends it: new when it has no id, an existing region otherwise. */
+        RegionDraft: {
+            /** @description The id of the region to change. Omit it to create a region. */
+            id?: components["schemas"]["RegionId"];
+            name: string;
+            /**
+             * Format: int32
+             * @description How many people live in the region.
+             */
+            population: number;
+            /** @description The municipality the region lies entirely inside. */
+            municipalityCode: components["schemas"]["MunicipalityCode"];
+            geometry: components["schemas"]["GeoJson.MultiPolygon"];
+        };
+        /**
+         * Format: int32
+         * @description A region's id. Assigned by the API, never changed and never reused.
+         */
+        RegionId: number;
+        /**
+         * @description The regions of one partition version. Together they cover the metropolitan area
+         *     exactly, with no overlap.
+         */
+        RegionPartition: {
+            /** @enum {string} */
+            type: "FeatureCollection";
+            features: components["schemas"]["Region"][];
+            /** @description Extent of all the features. Optional, and only an optimisation for clients. */
+            bbox?: number[];
+            /**
+             * Format: int32
+             * @description The partition version these regions belong to.
+             */
+            version: number;
+            /**
+             * Format: date-time
+             * @description When that version was saved.
+             */
+            createdAt: string;
+        };
+        RegionProperties: {
+            name: string;
+            /**
+             * Format: int32
+             * @description How many people live in the region.
+             */
+            population: number;
+            /** @description The municipality the region lies entirely inside. */
+            municipalityCode: components["schemas"]["MunicipalityCode"];
         };
         /**
          * @description What an account may do. Each role includes everything the role before it can do:
@@ -367,6 +597,228 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Health"];
+                };
+            };
+        };
+    };
+    Regions_listMunicipalities: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MunicipalityCollection"];
+                };
+            };
+        };
+    };
+    Regions_getRegionPartition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegionPartition"];
+                };
+            };
+            /** @description The resource does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    Regions_listPartitionVersions: {
+        parameters: {
+            query?: {
+                /** @description How many versions to return. Defaults to 50. */
+                limit?: number;
+                /** @description The `nextCursor` of the previous page. */
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PartitionVersionPage"];
+                };
+            };
+            /** @description The request does not match the contract. `details` lists what was wrong. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The access token is missing, invalid or expired. */
+            401: {
+                headers: {
+                    "WWW-Authenticate": "Bearer";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The caller's role does not allow this operation, or the operation's own rules forbid it. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    Regions_savePartitionVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PartitionChange"];
+            };
+        };
+        responses: {
+            /** @description The request has succeeded and a new resource has been created as a result. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PartitionVersion"];
+                };
+            };
+            /** @description The request does not match the contract. `details` lists what was wrong. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The access token is missing, invalid or expired. */
+            401: {
+                headers: {
+                    "WWW-Authenticate": "Bearer";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The caller's role does not allow this operation, or the operation's own rules forbid it. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The resource changed since the version the request was based on. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    Regions_getPartitionVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RegionPartition"];
+                };
+            };
+            /** @description The request does not match the contract. `details` lists what was wrong. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The access token is missing, invalid or expired. */
+            401: {
+                headers: {
+                    "WWW-Authenticate": "Bearer";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The caller's role does not allow this operation, or the operation's own rules forbid it. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The resource does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
         };

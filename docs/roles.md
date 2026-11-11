@@ -32,6 +32,9 @@ The set of roles is fixed. Adding, removing or reshaping a role needs a new ADR.
 | Remove an incident report (abuse, personal data) | deny | deny | deny | allow |
 | Create, edit or delete a single phenomenon | deny | deny | allow | allow |
 | Bulk ingestion | deny | deny | allow | allow |
+| Read the municipalities and the current region partition | allow | allow | allow | allow |
+| Change the region partition | deny | deny | deny | allow |
+| Read past partition versions and their history | deny | deny | deny | allow |
 | List accounts and their roles | deny | deny | deny | allow |
 | Change an account's role | deny | deny | deny | allow, except their own |
 | Define new roles | deny | deny | deny | deny |
