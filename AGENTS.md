@@ -15,6 +15,7 @@ as a whole rather than to any single component:
   TypeSpec. `contracts/lib/geojson.tsp` holds the geospatial primitives.
 - `contracts/generated/openapi.yaml` - compiled from the above. **Generated. Never edit.**
 - `docs/domain.md` - the domain glossary. Shared vocabulary for all components.
+- `docs/roles.md` - roles and the permission matrix. Every operation follows it.
 - `docs/architecture.md` - how the pieces fit together.
 - `docs/release.md` - how a change that crosses components is shipped.
 - `docs/adr/` - decisions and why they were made.
