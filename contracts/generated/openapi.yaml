@@ -1,16 +1,165 @@
 openapi: 3.1.0
 info:
   title: Phenomena Atlas API
-  version: 0.0.0
+  version: 0.1.0
   summary: The API behind Phenomena Atlas, consumed by the web and mobile clients.
   description: |-
     Every Phenomena Atlas client reaches domain data through this API. No client talks
     to the database directly.
 
-    Version 0.0.0 means the contract has not been designed yet. The first real version
-    depends on the domain glossary in ../docs/domain.md being filled in.
+    Before 1.0.0 the contract covers accounts and roles only. The domain operations depend
+    on the glossary in ../docs/domain.md defining what a phenomenon is.
 tags: []
 paths:
+  /accounts:
+    get:
+      operationId: Accounts_listAccounts
+      summary: List accounts.
+      description: Lists every account and its role, oldest first.
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: How many accounts to return. Defaults to 50.
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 200
+          explode: false
+        - name: cursor
+          in: query
+          required: false
+          description: The `nextCursor` of the previous page.
+          schema:
+            type: string
+          explode: false
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountPage'
+        '400':
+          description: The request does not match the contract. `details` lists what was wrong.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: The access token is missing, invalid or expired.
+          headers:
+            WWW-Authenticate:
+              required: true
+              schema:
+                type: string
+                enum:
+                  - Bearer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: The caller's role does not allow this operation, or the operation's own rules forbid it.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      x-minimum-role: admin
+  /accounts/me:
+    get:
+      operationId: Accounts_getMyAccount
+      summary: The caller's account.
+      description: |-
+        Returns the caller's own account, creating it with the role `user` on the first call.
+        Clients use it to learn which role the signed-in person holds.
+      parameters: []
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        '401':
+          description: The access token is missing, invalid or expired.
+          headers:
+            WWW-Authenticate:
+              required: true
+              schema:
+                type: string
+                enum:
+                  - Bearer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      x-minimum-role: user
+  /accounts/{accountId}/role:
+    put:
+      operationId: Accounts_changeAccountRole
+      summary: Change an account's role.
+      description: |-
+        Changes an account's role. Admins cannot change their own role, which answers 403 with
+        the code `own_role_change_forbidden`; this keeps the system from losing its last admin.
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Account'
+        '400':
+          description: The request does not match the contract. `details` lists what was wrong.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: The access token is missing, invalid or expired.
+          headers:
+            WWW-Authenticate:
+              required: true
+              schema:
+                type: string
+                enum:
+                  - Bearer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: The caller's role does not allow this operation, or the operation's own rules forbid it.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: The resource does not exist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                role:
+                  $ref: '#/components/schemas/Role'
+              required:
+                - role
+      x-minimum-role: admin
   /health:
     get:
       operationId: getHealth
@@ -32,6 +181,48 @@ security:
   - BearerAuth: []
 components:
   schemas:
+    Account:
+      type: object
+      required:
+        - id
+        - role
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: The API's own identifier for the account.
+        username:
+          type: string
+          description: The login name the identity provider reports. Absent until the person first signs in.
+        name:
+          type: string
+          description: The person's display name, when the identity provider has one.
+        email:
+          type: string
+          description: The person's email address, when the identity provider has one.
+        role:
+          $ref: '#/components/schemas/Role'
+        createdAt:
+          type: string
+          format: date-time
+          description: When the account was created.
+      description: |-
+        A person known to the API, created the first time they call it with a valid token.
+        The profile fields are copied from that token and refreshed when they change.
+    AccountPage:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Account'
+        nextCursor:
+          type: string
+          description: Pass as `cursor` to get the next page. Absent on the last page.
+      description: One page of accounts, oldest first.
     Error:
       type: object
       required:
@@ -174,6 +365,15 @@ components:
           type: string
           enum:
             - ok
+    Role:
+      type: string
+      enum:
+        - user
+        - analyst
+        - admin
+      description: |-
+        What an account may do. Each role includes everything the role before it can do:
+        user, then analyst, then admin.
   securitySchemes:
     BearerAuth:
       type: http
