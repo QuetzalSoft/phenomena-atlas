@@ -112,6 +112,93 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/phenomena": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List phenomena.
+         * @description Lists phenomena by name. Admins see every phenomenon and can filter by status; anyone
+         *     else, signed in or not, sees only published ones, and asking for another status
+         *     answers 403 with the code `forbidden`.
+         */
+        get: operations["Phenomena_listPhenomena"];
+        put?: never;
+        /**
+         * Create a phenomenon.
+         * @description Creates a phenomenon as a draft, at revision 1. A new phenomenon usually starts with
+         *     no characteristics and a `blank` weighting function.
+         */
+        post: operations["Phenomena_createPhenomenon"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/phenomena/{phenomenonId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A phenomenon.
+         * @description Returns one phenomenon. Drafts and archived phenomena are visible to admins only;
+         *     for anyone else the API answers 404 with the code `phenomenon_not_found`, as it does
+         *     when there is no such phenomenon.
+         */
+        get: operations["Phenomena_getPhenomenon"];
+        /**
+         * Change a phenomenon.
+         * @description Replaces a phenomenon's definition. Characteristics and options already saved must
+         *     all be sent again, with the same key and type: they are retired, never removed.
+         *     Answers 409 with the code `phenomenon_revision_conflict` when `baseRevision` is no
+         *     longer the latest revision.
+         */
+        put: operations["Phenomena_updatePhenomenon"];
+        post?: never;
+        /**
+         * Delete a draft phenomenon.
+         * @description Deletes a draft. A phenomenon that was ever published may have reports, so it can only
+         *     be archived: deleting one answers 409 with the code `phenomenon_not_draft`.
+         */
+        delete: operations["Phenomena_deletePhenomenon"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/phenomena/{phenomenonId}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change a phenomenon's status.
+         * @description Publishes, archives or republishes a phenomenon. A draft can be published, a
+         *     published phenomenon archived, and an archived one published again; nothing goes
+         *     back to draft. Errors:
+         *
+         *     - 400 `incomplete_weighting_function`: publishing a function with a blank.
+         *     - 409 `invalid_status_transition`: any other change of status.
+         *     - 409 `phenomenon_revision_conflict`: `baseRevision` is no longer the latest revision.
+         */
+        put: operations["Phenomena_changePhenomenonStatus"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/region-partition": {
         parameters: {
             query?: never;
@@ -230,6 +317,116 @@ export interface components {
             /** @description Pass as `cursor` to get the next page. Absent on the last page. */
             nextCursor?: string;
         };
+        /**
+         * @description How an aggregate combines the reports of a region:
+         *
+         *     - `count`: how many reports there are. Takes no characteristic.
+         *     - `sum`, `mean`, `min`, `max`: of the values of one characteristic. Reports without a
+         *       value for it are left out.
+         * @enum {string}
+         */
+        AggregateFunction: "count" | "sum" | "mean" | "min" | "max";
+        /** @description Yes or no. In the weighting function, yes counts as 1 and no as 0. */
+        BooleanCharacteristic: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "boolean";
+            key: components["schemas"]["CharacteristicKey"];
+            /** @description What a person filing a report sees. */
+            label: string;
+            /** @description Help shown next to the field when filing a report. */
+            description?: string;
+            /** @description Whether a new report must carry a value for it. */
+            required: boolean;
+            /**
+             * @description A retired characteristic is kept on the reports that already carry it, but new
+             *     reports do not carry it and the weighting function cannot use it.
+             */
+            retired: boolean;
+        };
+        /** @description One of a closed list of options. In the weighting function it counts as the chosen option's weight. */
+        CategoryCharacteristic: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "category";
+            key: components["schemas"]["CharacteristicKey"];
+            /** @description What a person filing a report sees. */
+            label: string;
+            /** @description Help shown next to the field when filing a report. */
+            description?: string;
+            /** @description Whether a new report must carry a value for it. */
+            required: boolean;
+            /**
+             * @description A retired characteristic is kept on the reports that already carry it, but new
+             *     reports do not carry it and the weighting function cannot use it.
+             */
+            retired: boolean;
+            /** @description The options, in the order they are offered. At least one must not be retired. */
+            options: components["schemas"]["CategoryOption"][];
+        };
+        /** @description One option of a category characteristic. */
+        CategoryOption: {
+            key: components["schemas"]["CharacteristicKey"];
+            label: string;
+            /**
+             * Format: double
+             * @description What the option counts as in the weighting function.
+             */
+            weight: number;
+            /** @description A retired option is kept on existing reports but not offered for new ones. */
+            retired: boolean;
+        };
+        /**
+         * @description One field that every incident report of a phenomenon carries. Its key and its type
+         *     never change once saved.
+         */
+        Characteristic: components["schemas"]["NumberCharacteristic"] | components["schemas"]["BooleanCharacteristic"] | components["schemas"]["CategoryCharacteristic"] | components["schemas"]["TextCharacteristic"] | components["schemas"]["DateCharacteristic"];
+        /** @description What every characteristic has, whatever its type. */
+        CharacteristicFields: {
+            key: components["schemas"]["CharacteristicKey"];
+            /** @description What a person filing a report sees. */
+            label: string;
+            /** @description Help shown next to the field when filing a report. */
+            description?: string;
+            /** @description Whether a new report must carry a value for it. */
+            required: boolean;
+            /**
+             * @description A retired characteristic is kept on the reports that already carry it, but new
+             *     reports do not carry it and the weighting function cannot use it.
+             */
+            retired: boolean;
+        };
+        /**
+         * @description How a characteristic or a category option is referred to by reports and by the
+         *     weighting function. Lowercase letters, digits and underscores, starting with a letter.
+         *     It never changes once saved.
+         * @example victims
+         */
+        CharacteristicKey: string;
+        /** @description A calendar date. Recorded with the report, but not usable in the weighting function. */
+        DateCharacteristic: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "date";
+            key: components["schemas"]["CharacteristicKey"];
+            /** @description What a person filing a report sees. */
+            label: string;
+            /** @description Help shown next to the field when filing a report. */
+            description?: string;
+            /** @description Whether a new report must carry a value for it. */
+            required: boolean;
+            /**
+             * @description A retired characteristic is kept on the reports that already carry it, but new
+             *     reports do not carry it and the weighting function cannot use it.
+             */
+            retired: boolean;
+        };
         /** @description The error shape returned by every failing request. */
         Error: {
             /**
@@ -307,6 +504,40 @@ export interface components {
             /** @description The municipality's name as INEGI writes it. */
             name: string;
         };
+        /** @description A number. In the weighting function it counts as its value. */
+        NumberCharacteristic: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "number";
+            key: components["schemas"]["CharacteristicKey"];
+            /** @description What a person filing a report sees. */
+            label: string;
+            /** @description Help shown next to the field when filing a report. */
+            description?: string;
+            /** @description Whether a new report must carry a value for it. */
+            required: boolean;
+            /**
+             * @description A retired characteristic is kept on the reports that already carry it, but new
+             *     reports do not carry it and the weighting function cannot use it.
+             */
+            retired: boolean;
+            /** @description Whether only whole numbers are accepted. */
+            integer: boolean;
+            /**
+             * Format: double
+             * @description The smallest value accepted, when there is one.
+             */
+            minimum?: number;
+            /**
+             * Format: double
+             * @description The largest value accepted, when there is one. Not less than `minimum`.
+             */
+            maximum?: number;
+            /** @description The unit the value is expressed in, shown next to it. */
+            unit?: string;
+        };
         /** @description A change to the region partition, applied as a whole or not at all. */
         PartitionChange: {
             /**
@@ -346,6 +577,76 @@ export interface components {
             items: components["schemas"]["PartitionVersion"][];
             /** @description Pass as `cursor` to get the next page. Absent on the last page. */
             nextCursor?: string;
+        };
+        /** @description Something the atlas maps, with the fields its reports carry and how its index is computed. */
+        Phenomenon: {
+            id: components["schemas"]["PhenomenonId"];
+            name: string;
+            /** @description What the phenomenon is and what its map shows. */
+            description: string;
+            /** @description The fields every incident report carries, in the order they are shown. Keys are unique. */
+            characteristics: components["schemas"]["Characteristic"][];
+            weightingFunction: components["schemas"]["WeightingExpression"];
+            status: components["schemas"]["PhenomenonStatus"];
+            /**
+             * Format: int32
+             * @description Grows by one on every change. Send it back as `baseRevision` to change the phenomenon.
+             */
+            revision: number;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        /** @description A new definition for an existing phenomenon, replacing the previous one as a whole. */
+        PhenomenonChange: {
+            /**
+             * Format: int32
+             * @description The revision the change was made against. It must still be the latest.
+             */
+            baseRevision: number;
+            name: string;
+            /** @description What the phenomenon is and what its map shows. */
+            description: string;
+            /** @description The fields every incident report carries, in the order they are shown. Keys are unique. */
+            characteristics: components["schemas"]["Characteristic"][];
+            weightingFunction: components["schemas"]["WeightingExpression"];
+        };
+        /** @description What an admin defines about a phenomenon. */
+        PhenomenonDefinition: {
+            name: string;
+            /** @description What the phenomenon is and what its map shows. */
+            description: string;
+            /** @description The fields every incident report carries, in the order they are shown. Keys are unique. */
+            characteristics: components["schemas"]["Characteristic"][];
+            weightingFunction: components["schemas"]["WeightingExpression"];
+        };
+        /**
+         * Format: int32
+         * @description A phenomenon's id. Assigned by the API, never changed and never reused.
+         */
+        PhenomenonId: number;
+        /** @description The phenomena the caller can see, by name. */
+        PhenomenonList: {
+            items: components["schemas"]["Phenomenon"][];
+        };
+        /**
+         * @description Where a phenomenon is in its life:
+         *
+         *     - `draft`: being defined. Only admins see it, and it accepts no reports.
+         *     - `published`: public, and accepts reports.
+         *     - `archived`: hidden from everyone but admins. Its reports are kept; it accepts no new ones.
+         * @enum {string}
+         */
+        PhenomenonStatus: "draft" | "published" | "archived";
+        /** @description A change of a phenomenon's status. */
+        PhenomenonStatusChange: {
+            /**
+             * Format: int32
+             * @description The revision the change was made against. It must still be the latest.
+             */
+            baseRevision: number;
+            status: components["schemas"]["PhenomenonStatus"];
         };
         /** @description An area of the metropolitan area that the maps paint in its own colour. */
         Region: {
@@ -413,6 +714,94 @@ export interface components {
          * @enum {string}
          */
         Role: "user" | "analyst" | "admin";
+        /** @description Free text. Recorded with the report, but not usable in the weighting function. */
+        TextCharacteristic: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "text";
+            key: components["schemas"]["CharacteristicKey"];
+            /** @description What a person filing a report sees. */
+            label: string;
+            /** @description Help shown next to the field when filing a report. */
+            description?: string;
+            /** @description Whether a new report must carry a value for it. */
+            required: boolean;
+            /**
+             * @description A retired characteristic is kept on the reports that already carry it, but new
+             *     reports do not carry it and the weighting function cannot use it.
+             */
+            retired: boolean;
+            /**
+             * Format: int32
+             * @description The longest text accepted, in characters.
+             */
+            maxLength: number;
+        };
+        /**
+         * @description A value computed from the reports located in the region. The characteristic must be a
+         *     number, yes/no or category characteristic that is not retired.
+         */
+        WeightingAggregate: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "aggregate";
+            function: components["schemas"]["AggregateFunction"];
+            /** @description The characteristic to aggregate. Required for every function but `count`, which takes none. */
+            characteristicKey?: components["schemas"]["CharacteristicKey"];
+        };
+        /**
+         * @description A part of the function not filled in yet. Allowed only while the phenomenon is a draft,
+         *     so that a function can be saved half-built.
+         */
+        WeightingBlank: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "blank";
+        };
+        /**
+         * @description The weighting function, as a tree. It is evaluated once per region of the current
+         *     partition, over the reports located in that region. When the result is undefined, such
+         *     as a division by zero or a mean over no values, the region has no index, which is not
+         *     the same as an index of 0. At most 100 nodes and 20 levels deep.
+         */
+        WeightingExpression: components["schemas"]["WeightingNumber"] | components["schemas"]["WeightingPopulation"] | components["schemas"]["WeightingAggregate"] | components["schemas"]["WeightingOperation"] | components["schemas"]["WeightingBlank"];
+        /** @description A constant. */
+        WeightingNumber: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "number";
+            /** Format: double */
+            value: number;
+        };
+        /** @description An arithmetic operation on two expressions: `left` operator `right`. */
+        WeightingOperation: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "operation";
+            operator: components["schemas"]["WeightingOperator"];
+            left: components["schemas"]["WeightingExpression"];
+            right: components["schemas"]["WeightingExpression"];
+        };
+        /** @enum {string} */
+        WeightingOperator: "add" | "subtract" | "multiply" | "divide";
+        /** @description The population of the region being computed. */
+        WeightingPopulation: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "population";
+        };
     };
     responses: never;
     parameters: never;
@@ -617,6 +1006,349 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MunicipalityCollection"];
+                };
+            };
+        };
+    };
+    Phenomena_listPhenomena: {
+        parameters: {
+            query?: {
+                /** @description Only phenomena with this status. */
+                status?: components["schemas"]["PhenomenonStatus"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PhenomenonList"];
+                };
+            };
+            /** @description The request does not match the contract. `details` lists what was wrong. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The caller's role does not allow this operation, or the operation's own rules forbid it. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    Phenomena_createPhenomenon: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PhenomenonDefinition"];
+            };
+        };
+        responses: {
+            /** @description The request has succeeded and a new resource has been created as a result. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Phenomenon"];
+                };
+            };
+            /** @description The request does not match the contract. `details` lists what was wrong. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The access token is missing, invalid or expired. */
+            401: {
+                headers: {
+                    "WWW-Authenticate": "Bearer";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The caller's role does not allow this operation, or the operation's own rules forbid it. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    Phenomena_getPhenomenon: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                phenomenonId: components["schemas"]["PhenomenonId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Phenomenon"];
+                };
+            };
+            /** @description The request does not match the contract. `details` lists what was wrong. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The resource does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    Phenomena_updatePhenomenon: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                phenomenonId: components["schemas"]["PhenomenonId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PhenomenonChange"];
+            };
+        };
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Phenomenon"];
+                };
+            };
+            /** @description The request does not match the contract. `details` lists what was wrong. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The access token is missing, invalid or expired. */
+            401: {
+                headers: {
+                    "WWW-Authenticate": "Bearer";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The caller's role does not allow this operation, or the operation's own rules forbid it. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The resource does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The resource changed since the version the request was based on. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    Phenomena_deletePhenomenon: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                phenomenonId: components["schemas"]["PhenomenonId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description There is no content to send for this request, but the headers may be useful. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The request does not match the contract. `details` lists what was wrong. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The access token is missing, invalid or expired. */
+            401: {
+                headers: {
+                    "WWW-Authenticate": "Bearer";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The caller's role does not allow this operation, or the operation's own rules forbid it. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The resource does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The resource changed since the version the request was based on. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    Phenomena_changePhenomenonStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                phenomenonId: components["schemas"]["PhenomenonId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PhenomenonStatusChange"];
+            };
+        };
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Phenomenon"];
+                };
+            };
+            /** @description The request does not match the contract. `details` lists what was wrong. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The access token is missing, invalid or expired. */
+            401: {
+                headers: {
+                    "WWW-Authenticate": "Bearer";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The caller's role does not allow this operation, or the operation's own rules forbid it. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The resource does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The resource changed since the version the request was based on. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
         };

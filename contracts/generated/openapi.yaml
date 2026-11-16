@@ -7,9 +7,9 @@ info:
     Every Phenomena Atlas client reaches domain data through this API. No client talks
     to the database directly.
 
-    Before 1.0.0 the contract covers accounts and roles, and the municipalities and region
-    partition of the metropolitan area. The phenomenon operations depend on the glossary in
-    ../docs/domain.md defining what a phenomenon is.
+    Before 1.0.0 the contract covers accounts and roles, the municipalities and region
+    partition of the metropolitan area, and the definition of phenomena: their
+    characteristics and their weighting function.
 tags: []
 paths:
   /accounts:
@@ -233,6 +233,313 @@ paths:
                 $ref: '#/components/schemas/MunicipalityCollection'
       security:
         - {}
+  /phenomena:
+    get:
+      operationId: Phenomena_listPhenomena
+      summary: List phenomena.
+      description: |-
+        Lists phenomena by name. Admins see every phenomenon and can filter by status; anyone
+        else, signed in or not, sees only published ones, and asking for another status
+        answers 403 with the code `forbidden`.
+      parameters:
+        - name: status
+          in: query
+          required: false
+          description: Only phenomena with this status.
+          schema:
+            $ref: '#/components/schemas/PhenomenonStatus'
+          explode: false
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PhenomenonList'
+        '400':
+          description: The request does not match the contract. `details` lists what was wrong.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: The caller's role does not allow this operation, or the operation's own rules forbid it.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+        - {}
+        - BearerAuth: []
+    post:
+      operationId: Phenomena_createPhenomenon
+      summary: Create a phenomenon.
+      description: |-
+        Creates a phenomenon as a draft, at revision 1. A new phenomenon usually starts with
+        no characteristics and a `blank` weighting function.
+      parameters: []
+      responses:
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Phenomenon'
+        '400':
+          description: The request does not match the contract. `details` lists what was wrong.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: The access token is missing, invalid or expired.
+          headers:
+            WWW-Authenticate:
+              required: true
+              schema:
+                type: string
+                enum:
+                  - Bearer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: The caller's role does not allow this operation, or the operation's own rules forbid it.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PhenomenonDefinition'
+      x-minimum-role: admin
+  /phenomena/{phenomenonId}:
+    get:
+      operationId: Phenomena_getPhenomenon
+      summary: A phenomenon.
+      description: |-
+        Returns one phenomenon. Drafts and archived phenomena are visible to admins only;
+        for anyone else the API answers 404 with the code `phenomenon_not_found`, as it does
+        when there is no such phenomenon.
+      parameters:
+        - name: phenomenonId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/PhenomenonId'
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Phenomenon'
+        '400':
+          description: The request does not match the contract. `details` lists what was wrong.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: The resource does not exist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+        - {}
+        - BearerAuth: []
+    put:
+      operationId: Phenomena_updatePhenomenon
+      summary: Change a phenomenon.
+      description: |-
+        Replaces a phenomenon's definition. Characteristics and options already saved must
+        all be sent again, with the same key and type: they are retired, never removed.
+        Answers 409 with the code `phenomenon_revision_conflict` when `baseRevision` is no
+        longer the latest revision.
+      parameters:
+        - name: phenomenonId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/PhenomenonId'
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Phenomenon'
+        '400':
+          description: The request does not match the contract. `details` lists what was wrong.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: The access token is missing, invalid or expired.
+          headers:
+            WWW-Authenticate:
+              required: true
+              schema:
+                type: string
+                enum:
+                  - Bearer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: The caller's role does not allow this operation, or the operation's own rules forbid it.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: The resource does not exist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: The resource changed since the version the request was based on.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PhenomenonChange'
+      x-minimum-role: admin
+    delete:
+      operationId: Phenomena_deletePhenomenon
+      summary: Delete a draft phenomenon.
+      description: |-
+        Deletes a draft. A phenomenon that was ever published may have reports, so it can only
+        be archived: deleting one answers 409 with the code `phenomenon_not_draft`.
+      parameters:
+        - name: phenomenonId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/PhenomenonId'
+      responses:
+        '204':
+          description: 'There is no content to send for this request, but the headers may be useful. '
+        '400':
+          description: The request does not match the contract. `details` lists what was wrong.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: The access token is missing, invalid or expired.
+          headers:
+            WWW-Authenticate:
+              required: true
+              schema:
+                type: string
+                enum:
+                  - Bearer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: The caller's role does not allow this operation, or the operation's own rules forbid it.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: The resource does not exist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: The resource changed since the version the request was based on.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      x-minimum-role: admin
+  /phenomena/{phenomenonId}/status:
+    put:
+      operationId: Phenomena_changePhenomenonStatus
+      summary: Change a phenomenon's status.
+      description: |-
+        Publishes, archives or republishes a phenomenon. A draft can be published, a
+        published phenomenon archived, and an archived one published again; nothing goes
+        back to draft. Errors:
+
+        - 400 `incomplete_weighting_function`: publishing a function with a blank.
+        - 409 `invalid_status_transition`: any other change of status.
+        - 409 `phenomenon_revision_conflict`: `baseRevision` is no longer the latest revision.
+      parameters:
+        - name: phenomenonId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/PhenomenonId'
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Phenomenon'
+        '400':
+          description: The request does not match the contract. `details` lists what was wrong.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: The access token is missing, invalid or expired.
+          headers:
+            WWW-Authenticate:
+              required: true
+              schema:
+                type: string
+                enum:
+                  - Bearer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: The caller's role does not allow this operation, or the operation's own rules forbid it.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: The resource does not exist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: The resource changed since the version the request was based on.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PhenomenonStatusChange'
+      x-minimum-role: admin
   /region-partition:
     get:
       operationId: Regions_getRegionPartition
@@ -482,6 +789,204 @@ components:
           type: string
           description: Pass as `cursor` to get the next page. Absent on the last page.
       description: One page of accounts, oldest first.
+    AggregateFunction:
+      type: string
+      enum:
+        - count
+        - sum
+        - mean
+        - min
+        - max
+      description: |-
+        How an aggregate combines the reports of a region:
+
+        - `count`: how many reports there are. Takes no characteristic.
+        - `sum`, `mean`, `min`, `max`: of the values of one characteristic. Reports without a
+          value for it are left out.
+    BooleanCharacteristic:
+      type: object
+      required:
+        - type
+        - key
+        - label
+        - required
+        - retired
+      properties:
+        type:
+          type: string
+          enum:
+            - boolean
+        key:
+          $ref: '#/components/schemas/CharacteristicKey'
+        label:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: What a person filing a report sees.
+        description:
+          type: string
+          maxLength: 500
+          description: Help shown next to the field when filing a report.
+        required:
+          type: boolean
+          description: Whether a new report must carry a value for it.
+        retired:
+          type: boolean
+          description: |-
+            A retired characteristic is kept on the reports that already carry it, but new
+            reports do not carry it and the weighting function cannot use it.
+      description: Yes or no. In the weighting function, yes counts as 1 and no as 0.
+    CategoryCharacteristic:
+      type: object
+      required:
+        - type
+        - key
+        - label
+        - required
+        - retired
+        - options
+      properties:
+        type:
+          type: string
+          enum:
+            - category
+        key:
+          $ref: '#/components/schemas/CharacteristicKey'
+        label:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: What a person filing a report sees.
+        description:
+          type: string
+          maxLength: 500
+          description: Help shown next to the field when filing a report.
+        required:
+          type: boolean
+          description: Whether a new report must carry a value for it.
+        retired:
+          type: boolean
+          description: |-
+            A retired characteristic is kept on the reports that already carry it, but new
+            reports do not carry it and the weighting function cannot use it.
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/CategoryOption'
+          minItems: 1
+          description: The options, in the order they are offered. At least one must not be retired.
+      description: One of a closed list of options. In the weighting function it counts as the chosen option's weight.
+    CategoryOption:
+      type: object
+      required:
+        - key
+        - label
+        - weight
+        - retired
+      properties:
+        key:
+          $ref: '#/components/schemas/CharacteristicKey'
+        label:
+          type: string
+          minLength: 1
+          maxLength: 100
+        weight:
+          type: number
+          format: double
+          description: What the option counts as in the weighting function.
+        retired:
+          type: boolean
+          description: A retired option is kept on existing reports but not offered for new ones.
+      description: One option of a category characteristic.
+    Characteristic:
+      type: object
+      oneOf:
+        - $ref: '#/components/schemas/NumberCharacteristic'
+        - $ref: '#/components/schemas/BooleanCharacteristic'
+        - $ref: '#/components/schemas/CategoryCharacteristic'
+        - $ref: '#/components/schemas/TextCharacteristic'
+        - $ref: '#/components/schemas/DateCharacteristic'
+      discriminator:
+        propertyName: type
+        mapping:
+          number: '#/components/schemas/NumberCharacteristic'
+          boolean: '#/components/schemas/BooleanCharacteristic'
+          category: '#/components/schemas/CategoryCharacteristic'
+          text: '#/components/schemas/TextCharacteristic'
+          date: '#/components/schemas/DateCharacteristic'
+      description: |-
+        One field that every incident report of a phenomenon carries. Its key and its type
+        never change once saved.
+    CharacteristicFields:
+      type: object
+      required:
+        - key
+        - label
+        - required
+        - retired
+      properties:
+        key:
+          $ref: '#/components/schemas/CharacteristicKey'
+        label:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: What a person filing a report sees.
+        description:
+          type: string
+          maxLength: 500
+          description: Help shown next to the field when filing a report.
+        required:
+          type: boolean
+          description: Whether a new report must carry a value for it.
+        retired:
+          type: boolean
+          description: |-
+            A retired characteristic is kept on the reports that already carry it, but new
+            reports do not carry it and the weighting function cannot use it.
+      description: What every characteristic has, whatever its type.
+    CharacteristicKey:
+      type: string
+      pattern: ^[a-z][a-z0-9_]{0,39}$
+      description: |-
+        How a characteristic or a category option is referred to by reports and by the
+        weighting function. Lowercase letters, digits and underscores, starting with a letter.
+        It never changes once saved.
+      examples:
+        - victims
+    DateCharacteristic:
+      type: object
+      required:
+        - type
+        - key
+        - label
+        - required
+        - retired
+      properties:
+        type:
+          type: string
+          enum:
+            - date
+        key:
+          $ref: '#/components/schemas/CharacteristicKey'
+        label:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: What a person filing a report sees.
+        description:
+          type: string
+          maxLength: 500
+          description: Help shown next to the field when filing a report.
+        required:
+          type: boolean
+          description: Whether a new report must carry a value for it.
+        retired:
+          type: boolean
+          description: |-
+            A retired characteristic is kept on the reports that already carry it, but new
+            reports do not carry it and the weighting function cannot use it.
+      description: A calendar date. Recorded with the report, but not usable in the weighting function.
     Error:
       type: object
       required:
@@ -680,6 +1185,55 @@ components:
         name:
           type: string
           description: The municipality's name as INEGI writes it.
+    NumberCharacteristic:
+      type: object
+      required:
+        - type
+        - key
+        - label
+        - required
+        - retired
+        - integer
+      properties:
+        type:
+          type: string
+          enum:
+            - number
+        key:
+          $ref: '#/components/schemas/CharacteristicKey'
+        label:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: What a person filing a report sees.
+        description:
+          type: string
+          maxLength: 500
+          description: Help shown next to the field when filing a report.
+        required:
+          type: boolean
+          description: Whether a new report must carry a value for it.
+        retired:
+          type: boolean
+          description: |-
+            A retired characteristic is kept on the reports that already carry it, but new
+            reports do not carry it and the weighting function cannot use it.
+        integer:
+          type: boolean
+          description: Whether only whole numbers are accepted.
+        minimum:
+          type: number
+          format: double
+          description: The smallest value accepted, when there is one.
+        maximum:
+          type: number
+          format: double
+          description: The largest value accepted, when there is one. Not less than `minimum`.
+        unit:
+          type: string
+          maxLength: 20
+          description: The unit the value is expressed in, shown next to it.
+      description: A number. In the weighting function it counts as its value.
     PartitionChange:
       type: object
       required:
@@ -764,6 +1318,148 @@ components:
           type: string
           description: Pass as `cursor` to get the next page. Absent on the last page.
       description: One page of partition versions, newest first.
+    Phenomenon:
+      type: object
+      required:
+        - id
+        - name
+        - description
+        - characteristics
+        - weightingFunction
+        - status
+        - revision
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          $ref: '#/components/schemas/PhenomenonId'
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 2000
+          description: What the phenomenon is and what its map shows.
+        characteristics:
+          type: array
+          items:
+            $ref: '#/components/schemas/Characteristic'
+          maxItems: 50
+          description: The fields every incident report carries, in the order they are shown. Keys are unique.
+        weightingFunction:
+          $ref: '#/components/schemas/WeightingExpression'
+        status:
+          $ref: '#/components/schemas/PhenomenonStatus'
+        revision:
+          type: integer
+          format: int32
+          minimum: 1
+          description: Grows by one on every change. Send it back as `baseRevision` to change the phenomenon.
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      description: Something the atlas maps, with the fields its reports carry and how its index is computed.
+    PhenomenonChange:
+      type: object
+      required:
+        - baseRevision
+        - name
+        - description
+        - characteristics
+        - weightingFunction
+      properties:
+        baseRevision:
+          type: integer
+          format: int32
+          minimum: 1
+          description: The revision the change was made against. It must still be the latest.
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 2000
+          description: What the phenomenon is and what its map shows.
+        characteristics:
+          type: array
+          items:
+            $ref: '#/components/schemas/Characteristic'
+          maxItems: 50
+          description: The fields every incident report carries, in the order they are shown. Keys are unique.
+        weightingFunction:
+          $ref: '#/components/schemas/WeightingExpression'
+      description: A new definition for an existing phenomenon, replacing the previous one as a whole.
+    PhenomenonDefinition:
+      type: object
+      required:
+        - name
+        - description
+        - characteristics
+        - weightingFunction
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 2000
+          description: What the phenomenon is and what its map shows.
+        characteristics:
+          type: array
+          items:
+            $ref: '#/components/schemas/Characteristic'
+          maxItems: 50
+          description: The fields every incident report carries, in the order they are shown. Keys are unique.
+        weightingFunction:
+          $ref: '#/components/schemas/WeightingExpression'
+      description: What an admin defines about a phenomenon.
+    PhenomenonId:
+      type: integer
+      format: int32
+      minimum: 1
+      description: A phenomenon's id. Assigned by the API, never changed and never reused.
+    PhenomenonList:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Phenomenon'
+      description: The phenomena the caller can see, by name.
+    PhenomenonStatus:
+      type: string
+      enum:
+        - draft
+        - published
+        - archived
+      description: |-
+        Where a phenomenon is in its life:
+
+        - `draft`: being defined. Only admins see it, and it accepts no reports.
+        - `published`: public, and accepts reports.
+        - `archived`: hidden from everyone but admins. Its reports are kept; it accepts no new ones.
+    PhenomenonStatusChange:
+      type: object
+      required:
+        - baseRevision
+        - status
+      properties:
+        baseRevision:
+          type: integer
+          format: int32
+          minimum: 1
+          description: The revision the change was made against. It must still be the latest.
+        status:
+          $ref: '#/components/schemas/PhenomenonStatus'
+      description: A change of a phenomenon's status.
     Region:
       type: object
       required:
@@ -886,6 +1582,147 @@ components:
       description: |-
         What an account may do. Each role includes everything the role before it can do:
         user, then analyst, then admin.
+    TextCharacteristic:
+      type: object
+      required:
+        - type
+        - key
+        - label
+        - required
+        - retired
+        - maxLength
+      properties:
+        type:
+          type: string
+          enum:
+            - text
+        key:
+          $ref: '#/components/schemas/CharacteristicKey'
+        label:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: What a person filing a report sees.
+        description:
+          type: string
+          maxLength: 500
+          description: Help shown next to the field when filing a report.
+        required:
+          type: boolean
+          description: Whether a new report must carry a value for it.
+        retired:
+          type: boolean
+          description: |-
+            A retired characteristic is kept on the reports that already carry it, but new
+            reports do not carry it and the weighting function cannot use it.
+        maxLength:
+          type: integer
+          format: int32
+          minimum: 1
+          maximum: 5000
+          description: The longest text accepted, in characters.
+      description: Free text. Recorded with the report, but not usable in the weighting function.
+    WeightingAggregate:
+      type: object
+      required:
+        - kind
+        - function
+      properties:
+        kind:
+          type: string
+          enum:
+            - aggregate
+        function:
+          $ref: '#/components/schemas/AggregateFunction'
+        characteristicKey:
+          $ref: '#/components/schemas/CharacteristicKey'
+          description: The characteristic to aggregate. Required for every function but `count`, which takes none.
+      description: |-
+        A value computed from the reports located in the region. The characteristic must be a
+        number, yes/no or category characteristic that is not retired.
+    WeightingBlank:
+      type: object
+      required:
+        - kind
+      properties:
+        kind:
+          type: string
+          enum:
+            - blank
+      description: |-
+        A part of the function not filled in yet. Allowed only while the phenomenon is a draft,
+        so that a function can be saved half-built.
+    WeightingExpression:
+      type: object
+      oneOf:
+        - $ref: '#/components/schemas/WeightingNumber'
+        - $ref: '#/components/schemas/WeightingPopulation'
+        - $ref: '#/components/schemas/WeightingAggregate'
+        - $ref: '#/components/schemas/WeightingOperation'
+        - $ref: '#/components/schemas/WeightingBlank'
+      discriminator:
+        propertyName: kind
+        mapping:
+          number: '#/components/schemas/WeightingNumber'
+          population: '#/components/schemas/WeightingPopulation'
+          aggregate: '#/components/schemas/WeightingAggregate'
+          operation: '#/components/schemas/WeightingOperation'
+          blank: '#/components/schemas/WeightingBlank'
+      description: |-
+        The weighting function, as a tree. It is evaluated once per region of the current
+        partition, over the reports located in that region. When the result is undefined, such
+        as a division by zero or a mean over no values, the region has no index, which is not
+        the same as an index of 0. At most 100 nodes and 20 levels deep.
+    WeightingNumber:
+      type: object
+      required:
+        - kind
+        - value
+      properties:
+        kind:
+          type: string
+          enum:
+            - number
+        value:
+          type: number
+          format: double
+      description: A constant.
+    WeightingOperation:
+      type: object
+      required:
+        - kind
+        - operator
+        - left
+        - right
+      properties:
+        kind:
+          type: string
+          enum:
+            - operation
+        operator:
+          $ref: '#/components/schemas/WeightingOperator'
+        left:
+          $ref: '#/components/schemas/WeightingExpression'
+        right:
+          $ref: '#/components/schemas/WeightingExpression'
+      description: 'An arithmetic operation on two expressions: `left` operator `right`.'
+    WeightingOperator:
+      type: string
+      enum:
+        - add
+        - subtract
+        - multiply
+        - divide
+    WeightingPopulation:
+      type: object
+      required:
+        - kind
+      properties:
+        kind:
+          type: string
+          enum:
+            - population
+      description: The population of the region being computed.
   securitySchemes:
     BearerAuth:
       type: http

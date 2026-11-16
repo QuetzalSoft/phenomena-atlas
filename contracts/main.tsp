@@ -24,9 +24,9 @@ using OpenAPI;
   Every Phenomena Atlas client reaches domain data through this API. No client talks
   to the database directly.
   
-  Before 1.0.0 the contract covers accounts and roles, and the municipalities and region
-  partition of the metropolitan area. The phenomenon operations depend on the glossary in
-  ../docs/domain.md defining what a phenomenon is.
+  Before 1.0.0 the contract covers accounts and roles, the municipalities and region
+  partition of the metropolitan area, and the definition of phenomena: their
+  characteristics and their weighting function.
   """)
 // TODO(team): replace with the real environments once hosting is decided.
 @server("http://localhost:8000", "Local development")
@@ -60,10 +60,6 @@ model Health {
 @get
 @useAuth(NoAuth)
 op getHealth(): Health;
-
-// TODO(team): the domain endpoints. Blocked on ../docs/domain.md, which defines what a
-// phenomenon is. Design the resources here before writing any handler. Geometries come
-// from lib/geojson.tsp; do not redefine them.
 
 // Authorization
 //
@@ -174,7 +170,10 @@ model MunicipalityProperties {
 }
 
 @doc("One municipality of the metropolitan area, with its INEGI boundary.")
-model Municipality is GeoJson.Feature<MunicipalityProperties, GeoJson.MultiPolygon> {
+model Municipality is GeoJson.Feature<
+  MunicipalityProperties,
+  GeoJson.MultiPolygon
+> {
   id: MunicipalityCode;
 }
 
@@ -307,7 +306,11 @@ namespace Regions {
     @doc("The `nextCursor` of the previous page.")
     @query
     cursor?: string,
-  ): PartitionVersionPage | BadRequestError | UnauthorizedError | ForbiddenError;
+  ):
+    | PartitionVersionPage
+    | BadRequestError
+    | UnauthorizedError
+    | ForbiddenError;
 
   @doc("""
     Returns every region as it was in one partition version. Answers 404 with the code
@@ -331,11 +334,11 @@ namespace Regions {
   @doc("""
     Saves a change to the region partition as the next version. The change is applied
     atomically and then validated; if any rule fails, nothing is saved.
-
+    
     Errors, each with its own `code`. In `details`, `regionIds` lists the existing regions
     involved, `draftIndexes` the positions in `regions` of new ones, and `geometry` the
     offending area when there is one:
-
+    
     - 400 `empty_change`: no region to create, change or retire.
     - 400 `duplicate_region_in_change`: a region appears more than once.
     - 400 `region_not_found`: an id that does not exist or was already retired.
@@ -346,7 +349,7 @@ namespace Regions {
     - 400 `region_overlap`: two regions overlap.
     - 400 `partition_gap`: part of a municipality is left without a region.
     - 409 `partition_version_conflict`: `baseVersion` is no longer the latest version.
-
+    
     Overlaps and gaps under one square metre are tolerated. Coordinates are returned
     exactly as stored, so geometries built from them match their neighbours' borders.
     """)
@@ -365,6 +368,404 @@ namespace Regions {
     | ConflictError;
 }
 
+// Phenomena
+//
+// A phenomenon is what one map of the atlas shows, such as gender violence or
+// contaminated water. Admins define what every incident report of it records (its
+// characteristics) and how the reports in a region become that region's index (its
+// weighting function). See ../docs/adr/0012-configurable-phenomena.md.
+
+@doc("A phenomenon's id. Assigned by the API, never changed and never reused.")
+@minValue(1)
+scalar PhenomenonId extends int32;
+
+@doc("""
+  Where a phenomenon is in its life:
+  
+  - `draft`: being defined. Only admins see it, and it accepts no reports.
+  - `published`: public, and accepts reports.
+  - `archived`: hidden from everyone but admins. Its reports are kept; it accepts no new ones.
+  """)
+enum PhenomenonStatus {
+  draft,
+  published,
+  archived,
+}
+
+@doc("""
+  How a characteristic or a category option is referred to by reports and by the
+  weighting function. Lowercase letters, digits and underscores, starting with a letter.
+  It never changes once saved.
+  """)
+@pattern("^[a-z][a-z0-9_]{0,39}$")
+@example("victims")
+scalar CharacteristicKey extends string;
+
+@doc("What every characteristic has, whatever its type.")
+model CharacteristicFields {
+  key: CharacteristicKey;
+
+  @doc("What a person filing a report sees.")
+  @minLength(1)
+  @maxLength(100)
+  label: string;
+
+  @doc("Help shown next to the field when filing a report.")
+  @maxLength(500)
+  description?: string;
+
+  @doc("Whether a new report must carry a value for it.")
+  required: boolean;
+
+  @doc("""
+    A retired characteristic is kept on the reports that already carry it, but new
+    reports do not carry it and the weighting function cannot use it.
+    """)
+  retired: boolean;
+}
+
+@doc("A number. In the weighting function it counts as its value.")
+model NumberCharacteristic {
+  type: "number";
+  ...CharacteristicFields;
+
+  @doc("Whether only whole numbers are accepted.")
+  integer: boolean;
+
+  @doc("The smallest value accepted, when there is one.")
+  minimum?: float64;
+
+  @doc("The largest value accepted, when there is one. Not less than `minimum`.")
+  maximum?: float64;
+
+  @doc("The unit the value is expressed in, shown next to it.")
+  @maxLength(20)
+  unit?: string;
+}
+
+@doc("Yes or no. In the weighting function, yes counts as 1 and no as 0.")
+model BooleanCharacteristic {
+  type: "boolean";
+  ...CharacteristicFields;
+}
+
+@doc("One of a closed list of options. In the weighting function it counts as the chosen option's weight.")
+model CategoryCharacteristic {
+  type: "category";
+  ...CharacteristicFields;
+
+  @doc("The options, in the order they are offered. At least one must not be retired.")
+  @minItems(1)
+  options: CategoryOption[];
+}
+
+@doc("One option of a category characteristic.")
+model CategoryOption {
+  key: CharacteristicKey;
+
+  @minLength(1)
+  @maxLength(100)
+  label: string;
+
+  @doc("What the option counts as in the weighting function.")
+  weight: float64;
+
+  @doc("A retired option is kept on existing reports but not offered for new ones.")
+  retired: boolean;
+}
+
+@doc("Free text. Recorded with the report, but not usable in the weighting function.")
+model TextCharacteristic {
+  type: "text";
+  ...CharacteristicFields;
+
+  @doc("The longest text accepted, in characters.")
+  @minValue(1)
+  @maxValue(5000)
+  maxLength: int32;
+}
+
+@doc("A calendar date. Recorded with the report, but not usable in the weighting function.")
+model DateCharacteristic {
+  type: "date";
+  ...CharacteristicFields;
+}
+
+@doc("""
+  One field that every incident report of a phenomenon carries. Its key and its type
+  never change once saved.
+  """)
+@discriminated(#{ envelope: "none", discriminatorPropertyName: "type" })
+union Characteristic {
+  number: NumberCharacteristic,
+  boolean: BooleanCharacteristic,
+  category: CategoryCharacteristic,
+  text: TextCharacteristic,
+  date: DateCharacteristic,
+}
+
+@doc("A constant.")
+model WeightingNumber {
+  kind: "number";
+  value: float64;
+}
+
+@doc("The population of the region being computed.")
+model WeightingPopulation {
+  kind: "population";
+}
+
+@doc("""
+  How an aggregate combines the reports of a region:
+  
+  - `count`: how many reports there are. Takes no characteristic.
+  - `sum`, `mean`, `min`, `max`: of the values of one characteristic. Reports without a
+    value for it are left out.
+  """)
+enum AggregateFunction {
+  count,
+  sum,
+  mean,
+  min,
+  max,
+}
+
+@doc("""
+  A value computed from the reports located in the region. The characteristic must be a
+  number, yes/no or category characteristic that is not retired.
+  """)
+model WeightingAggregate {
+  kind: "aggregate";
+  function: AggregateFunction;
+
+  @doc("The characteristic to aggregate. Required for every function but `count`, which takes none.")
+  characteristicKey?: CharacteristicKey;
+}
+
+enum WeightingOperator {
+  add,
+  subtract,
+  multiply,
+  divide,
+}
+
+@doc("An arithmetic operation on two expressions: `left` operator `right`.")
+model WeightingOperation {
+  kind: "operation";
+  operator: WeightingOperator;
+  left: WeightingExpression;
+  right: WeightingExpression;
+}
+
+@doc("""
+  A part of the function not filled in yet. Allowed only while the phenomenon is a draft,
+  so that a function can be saved half-built.
+  """)
+model WeightingBlank {
+  kind: "blank";
+}
+
+@doc("""
+  The weighting function, as a tree. It is evaluated once per region of the current
+  partition, over the reports located in that region. When the result is undefined, such
+  as a division by zero or a mean over no values, the region has no index, which is not
+  the same as an index of 0. At most 100 nodes and 20 levels deep.
+  """)
+@discriminated(#{ envelope: "none", discriminatorPropertyName: "kind" })
+union WeightingExpression {
+  number: WeightingNumber,
+  population: WeightingPopulation,
+  aggregate: WeightingAggregate,
+  operation: WeightingOperation,
+  blank: WeightingBlank,
+}
+
+@doc("What an admin defines about a phenomenon.")
+model PhenomenonDefinition {
+  @minLength(1)
+  @maxLength(200)
+  name: string;
+
+  @doc("What the phenomenon is and what its map shows.")
+  @maxLength(2000)
+  description: string;
+
+  @doc("The fields every incident report carries, in the order they are shown. Keys are unique.")
+  @maxItems(50)
+  characteristics: Characteristic[];
+
+  weightingFunction: WeightingExpression;
+}
+
+@doc("Something the atlas maps, with the fields its reports carry and how its index is computed.")
+model Phenomenon {
+  id: PhenomenonId;
+  ...PhenomenonDefinition;
+  status: PhenomenonStatus;
+
+  @doc("Grows by one on every change. Send it back as `baseRevision` to change the phenomenon.")
+  @minValue(1)
+  revision: int32;
+
+  createdAt: utcDateTime;
+  updatedAt: utcDateTime;
+}
+
+@doc("The phenomena the caller can see, by name.")
+model PhenomenonList {
+  items: Phenomenon[];
+}
+
+@doc("A new definition for an existing phenomenon, replacing the previous one as a whole.")
+model PhenomenonChange {
+  @doc("The revision the change was made against. It must still be the latest.")
+  @minValue(1)
+  baseRevision: int32;
+
+  ...PhenomenonDefinition;
+}
+
+@doc("A change of a phenomenon's status.")
+model PhenomenonStatusChange {
+  @doc("The revision the change was made against. It must still be the latest.")
+  @minValue(1)
+  baseRevision: int32;
+
+  status: PhenomenonStatus;
+}
+
+@doc("""
+  Phenomena and their definitions.
+  
+  A definition is refused with 400 and its own `code` when it breaks a rule. `details.path`
+  is a JSON Pointer into the request body to the part at fault, such as
+  `/characteristics/2/options/0` or `/weightingFunction/left/right`:
+  
+  - `duplicate_characteristic_key`: two characteristics share a key.
+  - `duplicate_category_option_key`: two options of one category share a key.
+  - `category_without_options`: every option of a category is retired.
+  - `invalid_number_range`: `minimum` is greater than `maximum`.
+  - `characteristic_removed`: a saved characteristic is missing. Retire it instead.
+  - `category_option_removed`: a saved option is missing. Retire it instead.
+  - `characteristic_type_changed`: a saved characteristic has a different type.
+  - `unknown_characteristic`: the function refers to a key no characteristic has.
+  - `characteristic_retired`: the function uses a retired characteristic.
+  - `characteristic_not_aggregable`: the function aggregates a text or date characteristic.
+  - `invalid_aggregate`: `count` with a characteristic, or another function without one.
+  - `weighting_function_too_large`: more than 100 nodes or more than 20 levels.
+  - `incomplete_weighting_function`: a blank in the function of a phenomenon that is, or
+    is being, published.
+  """)
+@route("/phenomena")
+namespace Phenomena {
+  @doc("""
+    Lists phenomena by name. Admins see every phenomenon and can filter by status; anyone
+    else, signed in or not, sees only published ones, and asking for another status
+    answers 403 with the code `forbidden`.
+    """)
+  @summary("List phenomena.")
+  @get
+  @useAuth(NoAuth | BearerAuth)
+  op listPhenomena(
+    @doc("Only phenomena with this status.")
+    @query
+    status?: PhenomenonStatus,
+  ): PhenomenonList | BadRequestError | ForbiddenError;
+
+  @doc("""
+    Returns one phenomenon. Drafts and archived phenomena are visible to admins only;
+    for anyone else the API answers 404 with the code `phenomenon_not_found`, as it does
+    when there is no such phenomenon.
+    """)
+  @summary("A phenomenon.")
+  @route("/{phenomenonId}")
+  @get
+  @useAuth(NoAuth | BearerAuth)
+  op getPhenomenon(@path phenomenonId: PhenomenonId):
+    | Phenomenon
+    | BadRequestError
+    | NotFoundError;
+
+  @doc("""
+    Creates a phenomenon as a draft, at revision 1. A new phenomenon usually starts with
+    no characteristics and a `blank` weighting function.
+    """)
+  @summary("Create a phenomenon.")
+  @post
+  @extension("x-minimum-role", "admin")
+  op createPhenomenon(@body body: PhenomenonDefinition):
+    | {
+        @statusCode _: 201;
+        @body phenomenon: Phenomenon;
+      }
+    | BadRequestError
+    | UnauthorizedError
+    | ForbiddenError;
+
+  @doc("""
+    Replaces a phenomenon's definition. Characteristics and options already saved must
+    all be sent again, with the same key and type: they are retired, never removed.
+    Answers 409 with the code `phenomenon_revision_conflict` when `baseRevision` is no
+    longer the latest revision.
+    """)
+  @summary("Change a phenomenon.")
+  @route("/{phenomenonId}")
+  @put
+  @extension("x-minimum-role", "admin")
+  op updatePhenomenon(
+    @path phenomenonId: PhenomenonId,
+    @body body: PhenomenonChange,
+  ):
+    | Phenomenon
+    | BadRequestError
+    | UnauthorizedError
+    | ForbiddenError
+    | NotFoundError
+    | ConflictError;
+
+  @doc("""
+    Publishes, archives or republishes a phenomenon. A draft can be published, a
+    published phenomenon archived, and an archived one published again; nothing goes
+    back to draft. Errors:
+    
+    - 400 `incomplete_weighting_function`: publishing a function with a blank.
+    - 409 `invalid_status_transition`: any other change of status.
+    - 409 `phenomenon_revision_conflict`: `baseRevision` is no longer the latest revision.
+    """)
+  @summary("Change a phenomenon's status.")
+  @route("/{phenomenonId}/status")
+  @put
+  @extension("x-minimum-role", "admin")
+  op changePhenomenonStatus(
+    @path phenomenonId: PhenomenonId,
+    @body body: PhenomenonStatusChange,
+  ):
+    | Phenomenon
+    | BadRequestError
+    | UnauthorizedError
+    | ForbiddenError
+    | NotFoundError
+    | ConflictError;
+
+  @doc("""
+    Deletes a draft. A phenomenon that was ever published may have reports, so it can only
+    be archived: deleting one answers 409 with the code `phenomenon_not_draft`.
+    """)
+  @summary("Delete a draft phenomenon.")
+  @route("/{phenomenonId}")
+  @delete
+  @extension("x-minimum-role", "admin")
+  op deletePhenomenon(@path phenomenonId: PhenomenonId):
+    | {
+        @statusCode _: 204;
+      }
+    | BadRequestError
+    | UnauthorizedError
+    | ForbiddenError
+    | NotFoundError
+    | ConflictError;
+}
+
 @route("/accounts")
 namespace Accounts {
   @doc("""
@@ -380,7 +781,7 @@ namespace Accounts {
   @doc("""
     Lists accounts and their roles, oldest first. Every filter is optional, and the ones
     given combine: an account is listed only when it matches all of them.
-
+    
     A cursor is only valid with the filters of the request that returned it; pass the same
     filters again with it. When both dates are given, `createdFrom` must be earlier than
     `createdBefore`, or the API answers 400 with the code `invalid_date_range`.

@@ -8,7 +8,7 @@ decides what that user may do, using the rules below.
 
 | Role | Purpose |
 |---|---|
-| `admin` | Operate and govern the system, including accounts and their roles |
+| `admin` | Operate and govern the system: phenomena, regions, accounts and their roles |
 | `analyst` | Feed the atlas with data and read the individual incident reports behind it |
 | `user` | Consume the atlas and file incident reports about phenomena |
 
@@ -24,13 +24,14 @@ The set of roles is fixed. Adding, removing or reshaping a role needs a new ADR.
 
 | Capability | Anonymous | `user` | `analyst` | `admin` |
 |---|---|---|---|---|
-| Browse and query phenomena and their index | allow | allow | allow | allow |
+| Browse and query published phenomena and their index | allow | allow | allow | allow |
 | File an incident report | deny | allow | allow | allow |
 | See one's own incident reports | deny | allow | allow | allow |
 | See any individual incident report | deny | deny | allow | allow |
 | Edit or withdraw an incident report | deny | deny | deny | deny |
 | Remove an incident report (abuse, personal data) | deny | deny | deny | allow |
-| Create, edit or delete a single phenomenon | deny | deny | allow | allow |
+| See draft and archived phenomena | deny | deny | deny | allow |
+| Define a phenomenon: create, change its characteristics and weighting function, publish, archive, delete a draft | deny | deny | deny | allow |
 | Bulk ingestion | deny | deny | allow | allow |
 | Read the municipalities and the current region partition | allow | allow | allow | allow |
 | Change the region partition | deny | deny | deny | allow |
@@ -66,5 +67,5 @@ states: once filed, it counts toward the index of its phenomenon.
 
 - Authorization in the contract and the API: #22
 - Incident reporting in the contract and the API: #23
-- The weighting function that produces the phenomenon index: #24
+- Computing the phenomenon index from its weighting function: #24
 - The bulk ingestion entry point, restricted to analysts and admins: #25
