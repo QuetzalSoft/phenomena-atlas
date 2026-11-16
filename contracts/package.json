@@ -26,7 +26,7 @@
     "compile": "bun --bun ./node_modules/.bin/tsp compile .",
     "types": "bun --bun ./node_modules/.bin/openapi-typescript generated/openapi.yaml -o generated/types.d.ts",
     "build": "bun run compile && bun run types",
-    "format": "bun --bun ./node_modules/.bin/tsp format \"**/*.tsp\""
+    "format": "bun format.ts"
   },
   "devDependencies": {
     "@typespec/compiler": "1.17.0",

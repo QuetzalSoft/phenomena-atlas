@@ -15,22 +15,71 @@ happen before the first endpoint is written, because the contract depends on it.
 
 ### Phenomenon
 
-> TODO(team): the central entity. Define precisely what counts as one and what does not.
-> What are its required attributes? What makes two records the same phenomenon?
+Something the atlas maps, such as gender violence or contaminated water in the
+metropolitan area. Each one has its own map, painted by its phenomenon index. It has an
+id, a name, a description, a status, a set of characteristics and a weighting function.
+The id is a positive integer assigned by the API that never changes and is never reused.
+
+Phenomena are generic: what is recorded about each one and how its index is computed are
+data an admin defines, not code. Two phenomena are the same only if they have the same id.
+See ADR 0012.
+
+### Phenomenon status
+
+Where a phenomenon is in its life. A **draft** is being defined: only admins see it and it
+accepts no incident reports. A **published** phenomenon is public and accepts reports. An
+**archived** one is hidden from everyone but admins, keeps its reports and accepts no new
+ones; it can be published again. Nothing goes back to draft, and only a draft can be
+deleted.
+
+### Characteristic
+
+One field that every incident report of a phenomenon carries, such as the number of
+victims or the source of the water. It has a key, a label, a description, whether it is
+required, whether it is retired, and a characteristic type. The key is how reports and the
+weighting function refer to it, and neither the key nor the type ever changes once saved.
+A characteristic is never removed, because reports that carry it cannot change; it is
+retired instead, which keeps it on those reports but leaves it out of new ones and out of
+the weighting function.
+
+### Characteristic type
+
+What kind of value a characteristic holds: a **number** (optionally whole, within a range,
+with a unit), **yes/no**, a **category**, free **text**, or a **date**. Number, yes/no and
+category characteristics can be used by the weighting function; text and date
+characteristics are only recorded.
+
+### Category option
+
+One of the closed list of values of a category characteristic. It has a key, a label and a
+numeric weight, which is what the option counts as in the weighting function. Like a
+characteristic, it is retired rather than removed.
+
+### Weighting function
+
+How the incident reports of a phenomenon become the index of each region. It is an
+expression an admin builds from constants, the region's population, aggregates of the
+reports located in the region (how many there are, or the sum, mean, minimum or maximum of
+a characteristic) and addition, subtraction, multiplication and division. The region's
+population is the only input that does not come from the phenomenon itself. A draft may
+hold an incomplete function; a published phenomenon always has a complete one.
 
 ### Incident report
 
 An account's statement that something related to one phenomenon happened. It records the
 phenomenon it refers to, the account that filed it, when it was filed, where the incident
-took place, and a free-text description. It is accepted as filed, with no review, and
-cannot be edited or withdrawn; only an admin can remove one. Individual reports are seen
-by analysts, admins and their own author. See `roles.md`.
+took place, a free-text description, and a value for each characteristic of the phenomenon
+that is not retired. It is accepted as filed, with no review, and cannot be edited or
+withdrawn; only an admin can remove one. Individual reports are seen by analysts, admins
+and their own author. See `roles.md`.
 
 ### Phenomenon index
 
-The value that results from weighting all the incident reports of a phenomenon. It is
-what the maps show, and everyone can see it, anonymous visitors included. The weighting
-function is not defined yet (#24).
+The value the weighting function of a phenomenon gives each region of the current region
+partition, from the incident reports located in that region. It is what the maps paint,
+and everyone can see it, anonymous visitors included. A region where the function is
+undefined, such as a division by zero, has no index, which is not the same as an index of
+0. How it is computed and stored is #24.
 
 ### Account
 
@@ -48,12 +97,12 @@ matrix is in `roles.md`.
 ### Admin
 
 The role that operates and governs the system. It can do everything an analyst can, and
-manage accounts and their roles.
+define phenomena, change the region partition, and manage accounts and their roles.
 
 ### Analyst
 
-The role that feeds the atlas with data. It can do everything a user can, plus create and
-edit phenomena, load data in bulk, and read individual incident reports.
+The role that feeds the atlas with data. It can do everything a user can, plus load data
+in bulk and read individual incident reports.
 
 ### User
 
