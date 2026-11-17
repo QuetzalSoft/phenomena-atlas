@@ -50,6 +50,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/accounts/me/incident-reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List my incident reports.
+         * @description Lists the reports the caller filed, most recently filed first. A cursor is only valid
+         *     with the filters of the request that returned it.
+         */
+        get: operations["IncidentReports_listMyIncidentReports"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/accounts/{accountId}/role": {
         parameters: {
             query?: never;
@@ -87,6 +108,27 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/incident-reports/{incidentReportId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove an incident report.
+         * @description Removes a report, for abuse or to erase personal data. It is the only way a report stops
+         *     counting. An unknown report answers 404 with the code `incident_report_not_found`.
+         */
+        delete: operations["IncidentReports_removeIncidentReport"];
         options?: never;
         head?: never;
         patch?: never;
@@ -168,6 +210,39 @@ export interface paths {
          *     be archived: deleting one answers 409 with the code `phenomenon_not_draft`.
          */
         delete: operations["Phenomena_deletePhenomenon"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/phenomena/{phenomenonId}/incident-reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the incident reports of a phenomenon.
+         * @description Lists the reports of a phenomenon, most recently filed first, without their authors.
+         *     Every filter is optional, and the ones given combine. A cursor is only valid with the
+         *     filters of the request that returned it.
+         *
+         *     When both dates are given, `occurredFrom` must be earlier than `occurredBefore`, or the
+         *     API answers 400 with the code `invalid_date_range`. An unknown phenomenon answers 404
+         *     with the code `phenomenon_not_found`.
+         */
+        get: operations["IncidentReports_listPhenomenonIncidentReports"];
+        put?: never;
+        /**
+         * File an incident report.
+         * @description Files an incident report about a phenomenon. Only a published phenomenon accepts them:
+         *     for a phenomenon the caller cannot see the API answers 404 with the code
+         *     `phenomenon_not_found`, and for a draft or an archived one an admin can see it answers
+         *     409 with the code `phenomenon_not_accepting_reports`.
+         */
+        post: operations["IncidentReports_fileIncidentReport"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -407,6 +482,12 @@ export interface components {
          * @example victims
          */
         CharacteristicKey: string;
+        /**
+         * @description The value a report gives one characteristic, by the characteristic's type: a number for
+         *     `number`, `true` or `false` for `boolean`, the key of an active option for `category`,
+         *     the text itself for `text`, and a `YYYY-MM-DD` date for `date`.
+         */
+        CharacteristicValue: number | boolean | string;
         /** @description A calendar date. Recorded with the report, but not usable in the weighting function. */
         DateCharacteristic: {
             /**
@@ -476,6 +557,66 @@ export interface components {
         Health: {
             /** @enum {string} */
             status: "ok";
+        };
+        /** @description An incident report as filed. It never carries its author. */
+        IncidentReport: {
+            id: components["schemas"]["IncidentReportId"];
+            phenomenonId: components["schemas"]["PhenomenonId"];
+            /** @description The phenomenon's name, so that a report can be shown without reading its phenomenon. */
+            phenomenonName: string;
+            /** @description The region of the current partition where the incident took place. */
+            regionId: components["schemas"]["RegionId"];
+            /**
+             * Format: date
+             * @description The day the incident took place, in the metropolitan area. Not later than today.
+             */
+            occurredOn: string;
+            /** @description What happened, in the reporter's words. */
+            description: string;
+            /**
+             * @description One value per characteristic, keyed by the characteristic's key. Every required active
+             *     characteristic needs one; an optional one is left out when it has no value.
+             */
+            values: {
+                [key: string]: components["schemas"]["CharacteristicValue"];
+            };
+            /** @description The region's name in its latest state, which may belong to an earlier partition version. */
+            regionName: string;
+            /**
+             * Format: date-time
+             * @description When the report was filed.
+             */
+            createdAt: string;
+        };
+        /** @description What a person states when filing an incident report. */
+        IncidentReportDraft: {
+            /** @description The region of the current partition where the incident took place. */
+            regionId: components["schemas"]["RegionId"];
+            /**
+             * Format: date
+             * @description The day the incident took place, in the metropolitan area. Not later than today.
+             */
+            occurredOn: string;
+            /** @description What happened, in the reporter's words. */
+            description: string;
+            /**
+             * @description One value per characteristic, keyed by the characteristic's key. Every required active
+             *     characteristic needs one; an optional one is left out when it has no value.
+             */
+            values: {
+                [key: string]: components["schemas"]["CharacteristicValue"];
+            };
+        };
+        /**
+         * Format: int32
+         * @description An incident report's identifier, assigned by the API. Never changes and is never reused.
+         */
+        IncidentReportId: number;
+        /** @description One page of incident reports, most recently filed first. */
+        IncidentReportPage: {
+            items: components["schemas"]["IncidentReport"][];
+            /** @description Pass as `cursor` to get the next page. Absent on the last page. */
+            nextCursor?: string;
         };
         /** @description One municipality of the metropolitan area, with its INEGI boundary. */
         Municipality: {
@@ -905,6 +1046,61 @@ export interface operations {
             };
         };
     };
+    IncidentReports_listMyIncidentReports: {
+        parameters: {
+            query?: {
+                /** @description How many reports to return. Defaults to 50. */
+                limit?: number;
+                /** @description The `nextCursor` of the previous page. */
+                cursor?: string;
+                /** @description Only reports about this phenomenon. */
+                phenomenonId?: components["schemas"]["PhenomenonId"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IncidentReportPage"];
+                };
+            };
+            /** @description The request does not match the contract. `details` lists what was wrong. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The access token is missing, invalid or expired. */
+            401: {
+                headers: {
+                    "WWW-Authenticate": "Bearer";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The caller's role does not allow this operation, or the operation's own rules forbid it. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     Accounts_changeAccountRole: {
         parameters: {
             query?: never;
@@ -986,6 +1182,63 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Health"];
+                };
+            };
+        };
+    };
+    IncidentReports_removeIncidentReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                incidentReportId: components["schemas"]["IncidentReportId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description There is no content to send for this request, but the headers may be useful. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The request does not match the contract. `details` lists what was wrong. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The access token is missing, invalid or expired. */
+            401: {
+                headers: {
+                    "WWW-Authenticate": "Bearer";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The caller's role does not allow this operation, or the operation's own rules forbid it. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The resource does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
                 };
             };
         };
@@ -1232,6 +1485,148 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description The request does not match the contract. `details` lists what was wrong. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The access token is missing, invalid or expired. */
+            401: {
+                headers: {
+                    "WWW-Authenticate": "Bearer";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The caller's role does not allow this operation, or the operation's own rules forbid it. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The resource does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The resource changed since the version the request was based on. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    IncidentReports_listPhenomenonIncidentReports: {
+        parameters: {
+            query?: {
+                /** @description How many reports to return. Defaults to 50. */
+                limit?: number;
+                /** @description The `nextCursor` of the previous page. */
+                cursor?: string;
+                /** @description Only reports filed in this region. */
+                regionId?: components["schemas"]["RegionId"];
+                /** @description Only incidents that took place on or after this day. */
+                occurredFrom?: string;
+                /** @description Only incidents that took place before this day. Together with `occurredFrom`, a half-open range. */
+                occurredBefore?: string;
+            };
+            header?: never;
+            path: {
+                phenomenonId: components["schemas"]["PhenomenonId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IncidentReportPage"];
+                };
+            };
+            /** @description The request does not match the contract. `details` lists what was wrong. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The access token is missing, invalid or expired. */
+            401: {
+                headers: {
+                    "WWW-Authenticate": "Bearer";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The caller's role does not allow this operation, or the operation's own rules forbid it. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The resource does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    IncidentReports_fileIncidentReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                phenomenonId: components["schemas"]["PhenomenonId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IncidentReportDraft"];
+            };
+        };
+        responses: {
+            /** @description The request has succeeded and a new resource has been created as a result. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IncidentReport"];
+                };
             };
             /** @description The request does not match the contract. `details` lists what was wrong. */
             400: {

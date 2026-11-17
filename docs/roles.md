@@ -57,7 +57,9 @@ An incident report is accepted as filed. Nobody reviews or approves it, and it h
 states: once filed, it counts toward the index of its phenomenon.
 
 - It is immutable. Its author cannot edit or withdraw it.
-- Analysts and admins can read individual reports. A user can read only their own.
+- Analysts and admins can read individual reports, without their author. A user can read
+  only their own.
+- A report records a region, never an exact location (ADR 0013).
 - Everyone, anonymous visitors included, sees the result of weighting all the reports of a
   phenomenon: its index, which is what the maps show.
 - An admin can remove a report, for abuse or to erase personal data. Removing it is the
@@ -66,6 +68,6 @@ states: once filed, it counts toward the index of its phenomenon.
 ## Future work
 
 - Authorization in the contract and the API: #22
-- Incident reporting in the contract and the API: #23
+- Incident reports in the API: #46
 - Computing the phenomenon index from its weighting function: #24
 - The bulk ingestion entry point, restricted to analysts and admins: #25

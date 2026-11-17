@@ -25,8 +25,9 @@ using OpenAPI;
   to the database directly.
   
   Before 1.0.0 the contract covers accounts and roles, the municipalities and region
-  partition of the metropolitan area, and the definition of phenomena: their
-  characteristics and their weighting function.
+  partition of the metropolitan area, the definition of phenomena: their
+  characteristics and their weighting function, and the incident reports filed about
+  them.
   """)
 // TODO(team): replace with the real environments once hosting is decided.
 @server("http://localhost:8000", "Local development")
@@ -764,6 +765,201 @@ namespace Phenomena {
     | ForbiddenError
     | NotFoundError
     | ConflictError;
+}
+
+// Incident reports
+//
+// Any signed-in account files reports about a published phenomenon. A report is accepted
+// as filed and never changes. It records a region and a date, never a point or a time, and
+// its author is returned to nobody but that author. See ../docs/adr/0013-incident-reports.md.
+
+@doc("An incident report's identifier, assigned by the API. Never changes and is never reused.")
+@minValue(1)
+scalar IncidentReportId extends int32;
+
+@doc("""
+  The value a report gives one characteristic, by the characteristic's type: a number for
+  `number`, `true` or `false` for `boolean`, the key of an active option for `category`,
+  the text itself for `text`, and a `YYYY-MM-DD` date for `date`.
+  """)
+union CharacteristicValue {
+  number: float64,
+  boolean: boolean,
+  string: string,
+}
+
+@doc("What a person states when filing an incident report.")
+model IncidentReportDraft {
+  @doc("The region of the current partition where the incident took place.")
+  regionId: RegionId;
+
+  @doc("The day the incident took place, in the metropolitan area. Not later than today.")
+  occurredOn: plainDate;
+
+  @doc("What happened, in the reporter's words.")
+  @minLength(1)
+  @maxLength(2000)
+  description: string;
+
+  @doc("""
+    One value per characteristic, keyed by the characteristic's key. Every required active
+    characteristic needs one; an optional one is left out when it has no value.
+    """)
+  values: Record<CharacteristicValue>;
+}
+
+@doc("An incident report as filed. It never carries its author.")
+model IncidentReport {
+  id: IncidentReportId;
+  phenomenonId: PhenomenonId;
+
+  @doc("The phenomenon's name, so that a report can be shown without reading its phenomenon.")
+  phenomenonName: string;
+
+  ...IncidentReportDraft;
+
+  @doc("The region's name in its latest state, which may belong to an earlier partition version.")
+  regionName: string;
+
+  @doc("When the report was filed.")
+  createdAt: utcDateTime;
+}
+
+@doc("One page of incident reports, most recently filed first.")
+model IncidentReportPage {
+  items: IncidentReport[];
+
+  @doc("Pass as `cursor` to get the next page. Absent on the last page.")
+  nextCursor?: string;
+}
+
+@doc("""
+  Filing and reading incident reports.
+  
+  A report is refused with 400 and its own `code` when it breaks a rule. `details.path` is a
+  JSON Pointer into the request body to the value at fault, such as `/values/victims`:
+  
+  - `region_not_found`: the region is not part of the current partition.
+  - `occurred_in_future`: `occurredOn` is later than today in the metropolitan area.
+  - `missing_characteristic_value`: a required active characteristic has no value.
+  - `unknown_characteristic`: no characteristic of the phenomenon has that key.
+  - `characteristic_retired`: the characteristic is retired and takes no new values.
+  - `invalid_characteristic_value`: the value's type does not match the characteristic, a
+    whole number has decimals, a text is empty, or a date is not a valid `YYYY-MM-DD`.
+  - `number_out_of_range`: a number is below the minimum or above the maximum.
+  - `text_too_long`: a text is longer than the characteristic's maximum length.
+  - `unknown_category_option`: no option of the category has that key.
+  - `category_option_retired`: the option is retired and takes no new reports.
+  """)
+namespace IncidentReports {
+  @doc("""
+    Files an incident report about a phenomenon. Only a published phenomenon accepts them:
+    for a phenomenon the caller cannot see the API answers 404 with the code
+    `phenomenon_not_found`, and for a draft or an archived one an admin can see it answers
+    409 with the code `phenomenon_not_accepting_reports`.
+    """)
+  @summary("File an incident report.")
+  @route("/phenomena/{phenomenonId}/incident-reports")
+  @post
+  @extension("x-minimum-role", "user")
+  op fileIncidentReport(
+    @path phenomenonId: PhenomenonId,
+    @body body: IncidentReportDraft,
+  ):
+    | {
+        @statusCode _: 201;
+        @body report: IncidentReport;
+      }
+    | BadRequestError
+    | UnauthorizedError
+    | ForbiddenError
+    | NotFoundError
+    | ConflictError;
+
+  @doc("""
+    Lists the reports of a phenomenon, most recently filed first, without their authors.
+    Every filter is optional, and the ones given combine. A cursor is only valid with the
+    filters of the request that returned it.
+    
+    When both dates are given, `occurredFrom` must be earlier than `occurredBefore`, or the
+    API answers 400 with the code `invalid_date_range`. An unknown phenomenon answers 404
+    with the code `phenomenon_not_found`.
+    """)
+  @summary("List the incident reports of a phenomenon.")
+  @route("/phenomena/{phenomenonId}/incident-reports")
+  @get
+  @extension("x-minimum-role", "analyst")
+  op listPhenomenonIncidentReports(
+    @path phenomenonId: PhenomenonId,
+
+    @doc("How many reports to return. Defaults to 50.")
+    @query
+    @minValue(1)
+    @maxValue(200)
+    limit?: int32,
+
+    @doc("The `nextCursor` of the previous page.")
+    @query
+    cursor?: string,
+
+    @doc("Only reports filed in this region.")
+    @query
+    regionId?: RegionId,
+
+    @doc("Only incidents that took place on or after this day.")
+    @query
+    occurredFrom?: plainDate,
+
+    @doc("Only incidents that took place before this day. Together with `occurredFrom`, a half-open range.")
+    @query
+    occurredBefore?: plainDate,
+  ):
+    | IncidentReportPage
+    | BadRequestError
+    | UnauthorizedError
+    | ForbiddenError
+    | NotFoundError;
+
+  @doc("""
+    Lists the reports the caller filed, most recently filed first. A cursor is only valid
+    with the filters of the request that returned it.
+    """)
+  @summary("List my incident reports.")
+  @route("/accounts/me/incident-reports")
+  @get
+  @extension("x-minimum-role", "user")
+  op listMyIncidentReports(
+    @doc("How many reports to return. Defaults to 50.")
+    @query
+    @minValue(1)
+    @maxValue(200)
+    limit?: int32,
+
+    @doc("The `nextCursor` of the previous page.")
+    @query
+    cursor?: string,
+
+    @doc("Only reports about this phenomenon.")
+    @query
+    phenomenonId?: PhenomenonId,
+  ): IncidentReportPage | BadRequestError | UnauthorizedError | ForbiddenError;
+
+  @doc("""
+    Removes a report, for abuse or to erase personal data. It is the only way a report stops
+    counting. An unknown report answers 404 with the code `incident_report_not_found`.
+    """)
+  @summary("Remove an incident report.")
+  @route("/incident-reports/{incidentReportId}")
+  @delete
+  @extension("x-minimum-role", "admin")
+  op removeIncidentReport(@path incidentReportId: IncidentReportId):
+    | {
+        @statusCode _: 204;
+      }
+    | BadRequestError
+    | UnauthorizedError
+    | ForbiddenError
+    | NotFoundError;
 }
 
 @route("/accounts")

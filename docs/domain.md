@@ -59,7 +59,7 @@ characteristic, it is retired rather than removed.
 
 How the incident reports of a phenomenon become the index of each region. It is an
 expression an admin builds from constants, the region's population, aggregates of the
-reports located in the region (how many there are, or the sum, mean, minimum or maximum of
+reports filed in the region (how many there are, or the sum, mean, minimum or maximum of
 a characteristic) and addition, subtraction, multiplication and division. The region's
 population is the only input that does not come from the phenomenon itself. A draft may
 hold an incomplete function; a published phenomenon always has a complete one.
@@ -67,16 +67,18 @@ hold an incomplete function; a published phenomenon always has a complete one.
 ### Incident report
 
 An account's statement that something related to one phenomenon happened. It records the
-phenomenon it refers to, the account that filed it, when it was filed, where the incident
-took place, a free-text description, and a value for each characteristic of the phenomenon
-that is not retired. It is accepted as filed, with no review, and cannot be edited or
-withdrawn; only an admin can remove one. Individual reports are seen by analysts, admins
-and their own author. See `roles.md`.
+phenomenon it refers to, the account that filed it, when it was filed, the region of the
+current partition where the incident took place, the date it happened, a free-text
+description, and a value for each characteristic of the phenomenon that is not retired. No
+exact location is recorded, only the region, so that a report cannot point at a person. It
+is accepted as filed, with no review, and cannot be edited or withdrawn; only an admin can
+remove one. Individual reports are seen by analysts and admins, without their author, and
+by their own author. See `roles.md` and ADR 0013.
 
 ### Phenomenon index
 
 The value the weighting function of a phenomenon gives each region of the current region
-partition, from the incident reports located in that region. It is what the maps paint,
+partition, from the incident reports filed in that region. It is what the maps paint,
 and everyone can see it, anonymous visitors included. A region where the function is
 undefined, such as a division by zero, has no index, which is not the same as an index of
 0. How it is computed and stored is #24.
