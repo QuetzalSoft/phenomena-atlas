@@ -68,8 +68,8 @@ hold an incomplete function; a published phenomenon always has a complete one.
 
 An account's statement that something related to one phenomenon happened. It records the
 phenomenon it refers to, the account that filed it, when it was filed, the region of the
-current partition where the incident took place, the date it happened, a free-text
-description, and a value for each characteristic of the phenomenon that is not retired. No
+current partition where the incident took place, the date it happened, an optional
+free-text description, and a value for each characteristic of the phenomenon that is not retired. No
 exact location is recorded, only the region, so that a report cannot point at a person. It
 is accepted as filed, with no review, and cannot be edited or withdrawn; only an admin can
 remove one. Individual reports are seen by analysts and admins, without their author, and

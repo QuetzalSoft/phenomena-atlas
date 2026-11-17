@@ -571,8 +571,11 @@ export interface components {
              * @description The day the incident took place, in the metropolitan area. Not later than today.
              */
             occurredOn: string;
-            /** @description What happened, in the reporter's words. */
-            description: string;
+            /**
+             * @description What happened, in the reporter's words. Optional: free text is where a reporter is most
+             *     likely to identify someone, so it is never asked for (ADR 0013). Left out when empty.
+             */
+            description?: string;
             /**
              * @description One value per characteristic, keyed by the characteristic's key. Every required active
              *     characteristic needs one; an optional one is left out when it has no value.
@@ -597,8 +600,11 @@ export interface components {
              * @description The day the incident took place, in the metropolitan area. Not later than today.
              */
             occurredOn: string;
-            /** @description What happened, in the reporter's words. */
-            description: string;
+            /**
+             * @description What happened, in the reporter's words. Optional: free text is where a reporter is most
+             *     likely to identify someone, so it is never asked for (ADR 0013). Left out when empty.
+             */
+            description?: string;
             /**
              * @description One value per characteristic, keyed by the characteristic's key. Every required active
              *     characteristic needs one; an optional one is left out when it has no value.

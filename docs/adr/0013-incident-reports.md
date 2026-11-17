@@ -16,6 +16,7 @@ report, without saying what they are. Questions to settle:
 - how a report says where the incident took place;
 - how it says when;
 - who sees the author of a report;
+- whether the description is required;
 - what happens to a report's region when the partition changes (ADR 0011).
 
 ## Decision
@@ -33,6 +34,13 @@ report was filed is recorded separately by the API.
 **Analysts and admins read reports without their author.** The author is stored so that an
 account can list its own reports, and so that an admin can find and remove abusive ones.
 No operation returns a report's author to anyone but that author.
+
+**The description is optional.** Free text is where a reporter is most likely to write a
+name, an address or a detail that identifies someone, the very thing the rules above keep
+out. Asking for it pushes people to write more than they need to, or to fill it with
+filler. The index is computed from characteristics, not from the description, so a
+phenomenon that needs context from every report gets a required text characteristic, and
+each phenomenon decides for itself.
 
 **Values are keyed by characteristic key and validated on filing.** Every active
 characteristic may carry a value and every required one must. A value must match its
@@ -54,6 +62,7 @@ Good:
 - The form needs no map interaction, only a searchable list of region names, which works
   the same on the web and on the mobile application.
 - Every report counts toward exactly one region, with no geometric join.
+- A report can be filed with no free text at all, the least it can say about anyone.
 
 Bad, and accepted deliberately:
 

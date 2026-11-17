@@ -796,10 +796,13 @@ model IncidentReportDraft {
   @doc("The day the incident took place, in the metropolitan area. Not later than today.")
   occurredOn: plainDate;
 
-  @doc("What happened, in the reporter's words.")
+  @doc("""
+    What happened, in the reporter's words. Optional: free text is where a reporter is most
+    likely to identify someone, so it is never asked for (ADR 0013). Left out when empty.
+    """)
   @minLength(1)
   @maxLength(2000)
-  description: string;
+  description?: string;
 
   @doc("""
     One value per characteristic, keyed by the characteristic's key. Every required active

@@ -1415,7 +1415,6 @@ components:
         - phenomenonName
         - regionId
         - occurredOn
-        - description
         - values
         - regionName
         - createdAt
@@ -1438,7 +1437,9 @@ components:
           type: string
           minLength: 1
           maxLength: 2000
-          description: What happened, in the reporter's words.
+          description: |-
+            What happened, in the reporter's words. Optional: free text is where a reporter is most
+            likely to identify someone, so it is never asked for (ADR 0013). Left out when empty.
         values:
           type: object
           additionalProperties:
@@ -1459,7 +1460,6 @@ components:
       required:
         - regionId
         - occurredOn
-        - description
         - values
       properties:
         regionId:
@@ -1473,7 +1473,9 @@ components:
           type: string
           minLength: 1
           maxLength: 2000
-          description: What happened, in the reporter's words.
+          description: |-
+            What happened, in the reporter's words. Optional: free text is where a reporter is most
+            likely to identify someone, so it is never asked for (ADR 0013). Left out when empty.
         values:
           type: object
           additionalProperties:
