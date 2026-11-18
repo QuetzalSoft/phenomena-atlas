@@ -8,8 +8,9 @@ info:
     to the database directly.
 
     Before 1.0.0 the contract covers accounts and roles, the municipalities and region
-    partition of the metropolitan area, and the definition of phenomena: their
-    characteristics and their weighting function.
+    partition of the metropolitan area, the definition of phenomena: their
+    characteristics and their weighting function, and the incident reports filed about
+    them.
 tags: []
 paths:
   /accounts:
@@ -137,6 +138,71 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
       x-minimum-role: user
+  /accounts/me/incident-reports:
+    get:
+      operationId: IncidentReports_listMyIncidentReports
+      summary: List my incident reports.
+      description: |-
+        Lists the reports the caller filed, most recently filed first. A cursor is only valid
+        with the filters of the request that returned it.
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: How many reports to return. Defaults to 50.
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 200
+          explode: false
+        - name: cursor
+          in: query
+          required: false
+          description: The `nextCursor` of the previous page.
+          schema:
+            type: string
+          explode: false
+        - name: phenomenonId
+          in: query
+          required: false
+          description: Only reports about this phenomenon.
+          schema:
+            $ref: '#/components/schemas/PhenomenonId'
+          explode: false
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncidentReportPage'
+        '400':
+          description: The request does not match the contract. `details` lists what was wrong.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: The access token is missing, invalid or expired.
+          headers:
+            WWW-Authenticate:
+              required: true
+              schema:
+                type: string
+                enum:
+                  - Bearer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: The caller's role does not allow this operation, or the operation's own rules forbid it.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      x-minimum-role: user
   /accounts/{accountId}/role:
     put:
       operationId: Accounts_changeAccountRole
@@ -218,6 +284,54 @@ paths:
                 $ref: '#/components/schemas/Health'
       security:
         - {}
+  /incident-reports/{incidentReportId}:
+    delete:
+      operationId: IncidentReports_removeIncidentReport
+      summary: Remove an incident report.
+      description: |-
+        Removes a report, for abuse or to erase personal data. It is the only way a report stops
+        counting. An unknown report answers 404 with the code `incident_report_not_found`.
+      parameters:
+        - name: incidentReportId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/IncidentReportId'
+      responses:
+        '204':
+          description: 'There is no content to send for this request, but the headers may be useful. '
+        '400':
+          description: The request does not match the contract. `details` lists what was wrong.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: The access token is missing, invalid or expired.
+          headers:
+            WWW-Authenticate:
+              required: true
+              schema:
+                type: string
+                enum:
+                  - Bearer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: The caller's role does not allow this operation, or the operation's own rules forbid it.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: The resource does not exist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      x-minimum-role: admin
   /municipalities:
     get:
       operationId: Regions_listMunicipalities
@@ -471,6 +585,168 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
       x-minimum-role: admin
+  /phenomena/{phenomenonId}/incident-reports:
+    post:
+      operationId: IncidentReports_fileIncidentReport
+      summary: File an incident report.
+      description: |-
+        Files an incident report about a phenomenon. Only a published phenomenon accepts them:
+        for a phenomenon the caller cannot see the API answers 404 with the code
+        `phenomenon_not_found`, and for a draft or an archived one an admin can see it answers
+        409 with the code `phenomenon_not_accepting_reports`.
+      parameters:
+        - name: phenomenonId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/PhenomenonId'
+      responses:
+        '201':
+          description: The request has succeeded and a new resource has been created as a result.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncidentReport'
+        '400':
+          description: The request does not match the contract. `details` lists what was wrong.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: The access token is missing, invalid or expired.
+          headers:
+            WWW-Authenticate:
+              required: true
+              schema:
+                type: string
+                enum:
+                  - Bearer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: The caller's role does not allow this operation, or the operation's own rules forbid it.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: The resource does not exist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: The resource changed since the version the request was based on.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IncidentReportDraft'
+      x-minimum-role: user
+    get:
+      operationId: IncidentReports_listPhenomenonIncidentReports
+      summary: List the incident reports of a phenomenon.
+      description: |-
+        Lists the reports of a phenomenon, most recently filed first, without their authors.
+        Every filter is optional, and the ones given combine. A cursor is only valid with the
+        filters of the request that returned it.
+
+        When both dates are given, `occurredFrom` must be earlier than `occurredBefore`, or the
+        API answers 400 with the code `invalid_date_range`. An unknown phenomenon answers 404
+        with the code `phenomenon_not_found`.
+      parameters:
+        - name: phenomenonId
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/PhenomenonId'
+        - name: limit
+          in: query
+          required: false
+          description: How many reports to return. Defaults to 50.
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 200
+          explode: false
+        - name: cursor
+          in: query
+          required: false
+          description: The `nextCursor` of the previous page.
+          schema:
+            type: string
+          explode: false
+        - name: regionId
+          in: query
+          required: false
+          description: Only reports filed in this region.
+          schema:
+            $ref: '#/components/schemas/RegionId'
+          explode: false
+        - name: occurredFrom
+          in: query
+          required: false
+          description: Only incidents that took place on or after this day.
+          schema:
+            type: string
+            format: date
+          explode: false
+        - name: occurredBefore
+          in: query
+          required: false
+          description: Only incidents that took place before this day. Together with `occurredFrom`, a half-open range.
+          schema:
+            type: string
+            format: date
+          explode: false
+      responses:
+        '200':
+          description: The request has succeeded.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IncidentReportPage'
+        '400':
+          description: The request does not match the contract. `details` lists what was wrong.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: The access token is missing, invalid or expired.
+          headers:
+            WWW-Authenticate:
+              required: true
+              schema:
+                type: string
+                enum:
+                  - Bearer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: The caller's role does not allow this operation, or the operation's own rules forbid it.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: The resource does not exist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      x-minimum-role: analyst
   /phenomena/{phenomenonId}/status:
     put:
       operationId: Phenomena_changePhenomenonStatus
@@ -954,6 +1230,16 @@ components:
         It never changes once saved.
       examples:
         - victims
+    CharacteristicValue:
+      anyOf:
+        - type: number
+          format: double
+        - type: boolean
+        - type: string
+      description: |-
+        The value a report gives one characteristic, by the characteristic's type: a number for
+        `number`, `true` or `false` for `boolean`, the key of an active option for `category`,
+        the text itself for `text`, and a `YYYY-MM-DD` date for `date`.
     DateCharacteristic:
       type: object
       required:
@@ -1121,6 +1407,101 @@ components:
           type: string
           enum:
             - ok
+    IncidentReport:
+      type: object
+      required:
+        - id
+        - phenomenonId
+        - phenomenonName
+        - regionId
+        - occurredOn
+        - values
+        - regionName
+        - createdAt
+      properties:
+        id:
+          $ref: '#/components/schemas/IncidentReportId'
+        phenomenonId:
+          $ref: '#/components/schemas/PhenomenonId'
+        phenomenonName:
+          type: string
+          description: The phenomenon's name, so that a report can be shown without reading its phenomenon.
+        regionId:
+          $ref: '#/components/schemas/RegionId'
+          description: The region of the current partition where the incident took place.
+        occurredOn:
+          type: string
+          format: date
+          description: The day the incident took place, in the metropolitan area. Not later than today.
+        description:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: |-
+            What happened, in the reporter's words. Optional: free text is where a reporter is most
+            likely to identify someone, so it is never asked for (ADR 0013). Left out when empty.
+        values:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/CharacteristicValue'
+          description: |-
+            One value per characteristic, keyed by the characteristic's key. Every required active
+            characteristic needs one; an optional one is left out when it has no value.
+        regionName:
+          type: string
+          description: The region's name in its latest state, which may belong to an earlier partition version.
+        createdAt:
+          type: string
+          format: date-time
+          description: When the report was filed.
+      description: An incident report as filed. It never carries its author.
+    IncidentReportDraft:
+      type: object
+      required:
+        - regionId
+        - occurredOn
+        - values
+      properties:
+        regionId:
+          $ref: '#/components/schemas/RegionId'
+          description: The region of the current partition where the incident took place.
+        occurredOn:
+          type: string
+          format: date
+          description: The day the incident took place, in the metropolitan area. Not later than today.
+        description:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: |-
+            What happened, in the reporter's words. Optional: free text is where a reporter is most
+            likely to identify someone, so it is never asked for (ADR 0013). Left out when empty.
+        values:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/CharacteristicValue'
+          description: |-
+            One value per characteristic, keyed by the characteristic's key. Every required active
+            characteristic needs one; an optional one is left out when it has no value.
+      description: What a person states when filing an incident report.
+    IncidentReportId:
+      type: integer
+      format: int32
+      minimum: 1
+      description: An incident report's identifier, assigned by the API. Never changes and is never reused.
+    IncidentReportPage:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/IncidentReport'
+        nextCursor:
+          type: string
+          description: Pass as `cursor` to get the next page. Absent on the last page.
+      description: One page of incident reports, most recently filed first.
     Municipality:
       type: object
       required:
