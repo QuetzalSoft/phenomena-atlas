@@ -83,7 +83,8 @@ enum Role {
 
 @doc("""
   A person known to the API, created the first time they call it with a valid token.
-  The profile fields are copied from that token and refreshed when they change.
+  The profile fields are copied from that token and refreshed when they change. The name
+  and email can also be edited, with `updateMyProfile` and `updateAccountProfile`.
   """)
 model Account {
   @doc("The API's own identifier for the account.")
@@ -111,6 +112,22 @@ model AccountPage {
 
   @doc("Pass as `cursor` to get the next page. Absent on the last page.")
   nextCursor?: string;
+}
+
+@doc("""
+  The details of an account that its owner, or an admin, can edit. The username is not
+  one of them: it comes from the identity provider and does not change.
+  """)
+model AccountProfile {
+  @doc("The person's display name.")
+  @minLength(1)
+  @maxLength(200)
+  name: string;
+
+  @doc("The person's email address.")
+  @format("email")
+  @maxLength(254)
+  email: string;
 }
 
 @doc("The request does not match the contract. `details` lists what was wrong.")
@@ -142,10 +159,23 @@ model NotFoundError {
   ...Error;
 }
 
-@doc("The resource changed since the version the request was based on.")
+@doc("""
+  The request conflicts with the current state of the resource: it changed since the
+  version the request was based on, or the value asked for is already taken.
+  """)
 @error
 model ConflictError {
   @statusCode _: 409;
+  ...Error;
+}
+
+@doc("""
+  The service could not complete the request right now. Nothing was changed, and the
+  request can be tried again.
+  """)
+@error
+model ServiceUnavailableError {
+  @statusCode _: 503;
   ...Error;
 }
 
@@ -978,6 +1008,25 @@ namespace Accounts {
   op getMyAccount(): Account | UnauthorizedError;
 
   @doc("""
+    Changes the caller's own name and email. The change is written to the identity provider
+    first and then to the account, so it shows at once and is still there after signing out
+    and in. Nothing changes when the request fails. A value that is not acceptable answers
+    400 with the code `invalid_account_details`; an email that another account already has
+    answers 409 with `email_already_in_use`; an identity provider that refused the change
+    or could not be reached answers 503 with `account_update_unavailable`.
+    """)
+  @summary("Edit the caller's own details.")
+  @route("/me/profile")
+  @put
+  @extension("x-minimum-role", "user")
+  op updateMyProfile(@body body: AccountProfile):
+    | Account
+    | BadRequestError
+    | UnauthorizedError
+    | ConflictError
+    | ServiceUnavailableError;
+
+  @doc("""
     Lists accounts and their roles, oldest first. Every filter is optional, and the ones
     given combine: an account is listed only when it matches all of them.
     
@@ -1043,4 +1092,30 @@ namespace Accounts {
     | UnauthorizedError
     | ForbiddenError
     | NotFoundError;
+
+  @doc("""
+    Changes another account's name and email. Only admins may; the person's own details
+    are edited with `updateMyProfile`. It writes and fails the way `updateMyProfile` does:
+    400 `invalid_account_details`, 409 `email_already_in_use` and 503
+    `account_update_unavailable`, and nothing changes in any of them. The person sees the
+    new details the next time they sign in.
+    """)
+  @summary("Edit an account's details.")
+  @route("/{accountId}/profile")
+  @put
+  @extension("x-minimum-role", "admin")
+  op updateAccountProfile(
+    @path
+    @format("uuid")
+    accountId: string,
+
+    @body body: AccountProfile,
+  ):
+    | Account
+    | BadRequestError
+    | UnauthorizedError
+    | ForbiddenError
+    | NotFoundError
+    | ConflictError
+    | ServiceUnavailableError;
 }
