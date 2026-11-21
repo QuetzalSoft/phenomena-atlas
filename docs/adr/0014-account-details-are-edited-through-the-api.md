@@ -30,8 +30,11 @@ Two options were considered:
 
 **The API writes account details to Keycloak, through a service account client.**
 
-**Only name and email are editable.** The username is not: it is how people and admins
-recognise an account, and nothing in the product needs it to change.
+**Only first name, last name and email are editable.** Keycloak keeps a first and a last
+name, and the display name is the two together, so the product edits them as Keycloak keeps
+them instead of splitting one name and guessing where it divides. The username is not
+editable: it is how people and admins recognise an account, and nothing in the product needs
+it to change.
 
 **The service account has the minimum Keycloak permissions** to find and update users, and
 nothing else. It is a confidential client in the realm. Its secret comes from deployment
@@ -49,9 +52,9 @@ API reports a failure, and the local profile catches up from the next token that
 new values.
 
 **Tokens issued before an edit do not undo it.** A token issued before the change still
-carries the old name and email until it is refreshed or the person signs in again, and the
+carries the old names and email until it is refreshed or the person signs in again, and the
 API refreshes the local profile from whatever token arrives. So the API does not refresh
-name and email from a token issued before the profile's last edit. This needs the time of
+names and email from a token issued before the profile's last edit. This needs the time of
 the last edit on the account and the token's issue time.
 
 **Refusals have their own error codes.** Keycloak decides whether an email is already taken
