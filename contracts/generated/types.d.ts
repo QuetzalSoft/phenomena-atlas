@@ -81,12 +81,15 @@ export interface paths {
         get?: never;
         /**
          * Edit the caller's own details.
-         * @description Changes the caller's own name and email. The change is written to the identity provider
-         *     first and then to the account, so it shows at once and is still there after signing out
-         *     and in. Nothing changes when the request fails. A value that is not acceptable answers
-         *     400 with the code `invalid_account_details`; an email that another account already has
-         *     answers 409 with `email_already_in_use`; an identity provider that refused the change
-         *     or could not be reached answers 503 with `account_update_unavailable`.
+         * @description Changes the caller's own first name, last name and email. The change is written to the
+         *     identity provider first and then to the account, so it shows at once and is still there
+         *     after signing out and in. Nothing changes when the request fails.
+         *
+         *     A value outside the limits of the request body answers 400 `invalid_request`, as
+         *     everywhere else. A value inside them that the identity provider refuses answers 400
+         *     `invalid_account_details`; an email that another account already has answers 409
+         *     `email_already_in_use`; an identity provider that could not be reached, or that failed
+         *     in another way, answers 503 `account_update_unavailable`.
          */
         put: operations["Accounts_updateMyProfile"];
         post?: never;
@@ -106,10 +109,10 @@ export interface paths {
         get?: never;
         /**
          * Edit an account's details.
-         * @description Changes another account's name and email. Only admins may; the person's own details
-         *     are edited with `updateMyProfile`. It writes and fails the way `updateMyProfile` does:
-         *     400 `invalid_account_details`, 409 `email_already_in_use` and 503
-         *     `account_update_unavailable`, and nothing changes in any of them. The person sees the
+         * @description Changes another account's first name, last name and email. Only admins may; the person's
+         *     own details are edited with `updateMyProfile`. It writes and fails the way
+         *     `updateMyProfile` does: 400 `invalid_account_details`, 409 `email_already_in_use` and
+         *     503 `account_update_unavailable`, and nothing changes in any of them. The person sees the
          *     new details the next time they sign in.
          */
         put: operations["Accounts_updateAccountProfile"];
@@ -414,8 +417,9 @@ export interface components {
     schemas: {
         /**
          * @description A person known to the API, created the first time they call it with a valid token.
-         *     The profile fields are copied from that token and refreshed when they change. The name
-         *     and email can also be edited, with `updateMyProfile` and `updateAccountProfile`.
+         *     The profile fields are copied from that token and refreshed when they change. The first
+         *     name, last name and email can also be edited, with `updateMyProfile` and
+         *     `updateAccountProfile`.
          */
         Account: {
             /**
@@ -427,6 +431,10 @@ export interface components {
             username?: string;
             /** @description The person's display name, when the identity provider has one. */
             name?: string;
+            /** @description The person's first name, when the identity provider has one. */
+            firstName?: string;
+            /** @description The person's last name, when the identity provider has one. */
+            lastName?: string;
             /** @description The person's email address, when the identity provider has one. */
             email?: string;
             role: components["schemas"]["Role"];
@@ -443,12 +451,15 @@ export interface components {
             nextCursor?: string;
         };
         /**
-         * @description The details of an account that its owner, or an admin, can edit. The username is not
-         *     one of them: it comes from the identity provider and does not change.
+         * @description The details of an account that its owner, or an admin, can edit. The display name is
+         *     not one of them: it is the first and last name together. The username is not one
+         *     either: it comes from the identity provider and does not change.
          */
         AccountProfile: {
-            /** @description The person's display name. */
-            name: string;
+            /** @description The person's first name, as the identity provider keeps it. */
+            firstName: string;
+            /** @description The person's last name, as the identity provider keeps it. */
+            lastName: string;
             /**
              * Format: email
              * @description The person's email address.
