@@ -1,6 +1,6 @@
 # 0014 - Account details are edited through the API, which writes them to Keycloak
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-11-20
 - Amends: `0008-authentication-with-keycloak.md`
 
