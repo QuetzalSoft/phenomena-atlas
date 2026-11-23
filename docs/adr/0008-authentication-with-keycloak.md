@@ -1,6 +1,6 @@
 # 0008 - Users authenticate with a self-hosted Keycloak, and roles live in the API
 
-- Status: accepted
+- Status: accepted, amended by `0014-account-details-are-edited-through-the-api.md`
 - Date: 2026-11-11
 
 ## Context
