@@ -17,8 +17,9 @@ happen before the first endpoint is written, because the contract depends on it.
 
 Something the atlas maps, such as gender violence or contaminated water in the
 metropolitan area. Each one has its own map, painted by its phenomenon index. It has an
-id, a name, a description, a status, a set of characteristics and a weighting function.
-The id is a positive integer assigned by the API that never changes and is never reused.
+id, a name, a description, a status, a set of characteristics, a weighting function and a
+refresh interval. The id is a positive integer assigned by the API that never changes and
+is never reused.
 
 Phenomena are generic: what is recorded about each one and how its index is computed are
 data an admin defines, not code. Two phenomena are the same only if they have the same id.
@@ -64,6 +65,13 @@ a characteristic) and addition, subtraction, multiplication and division. The re
 population is the only input that does not come from the phenomenon itself. A draft may
 hold an incomplete function; a published phenomenon always has a complete one.
 
+### Refresh interval
+
+How often a phenomenon's index is recomputed, in whole minutes, from 5 minutes to 30 days.
+A new phenomenon starts with 60. The index is recomputed at least once per interval, and
+the map shows the last computed index in between. It is public once the phenomenon is
+published. See ADR 0014.
+
 ### Incident report
 
 An account's statement that something related to one phenomenon happened. It records the
@@ -81,7 +89,17 @@ The value the weighting function of a phenomenon gives each region of the curren
 partition, from the incident reports filed in that region. It is what the maps paint,
 and everyone can see it, anonymous visitors included. A region where the function is
 undefined, such as a division by zero, has no index, which is not the same as an index of
-0. How it is computed and stored is #24.
+0. It is stored and recomputed when due (see Index computation), and everyone sees the
+last complete computation. Incident reports filed in a region that a later partition
+version retired count in the current region that overlaps most with it. See ADR 0015.
+
+### Index computation
+
+One run that recomputes a phenomenon's index for every region of the current region
+partition, recording when it started and the phenomenon revision and partition version it
+used. A published phenomenon is due for one when it never had one, its refresh interval
+has elapsed, its revision changed (any saved change to it, its status included) or the
+region partition changed. See ADR 0015 and ADR 0016.
 
 ### Account
 

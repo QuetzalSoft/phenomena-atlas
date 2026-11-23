@@ -1,6 +1,6 @@
 # 0013 - Incident reports record a region and a date, never a point or a time
 
-- Status: accepted
+- Status: accepted, amended by `0015-phenomenon-index-computation.md`
 - Date: 2026-11-16
 
 ## Context

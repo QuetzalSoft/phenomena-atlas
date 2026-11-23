@@ -1,6 +1,6 @@
 # 0012 - Phenomena are defined by admins: their characteristics and weighting function are data
 
-- Status: accepted
+- Status: accepted, amended by `0014-phenomenon-refresh-interval.md` and `0015-phenomenon-index-computation.md`
 - Date: 2026-11-15
 
 ## Context
