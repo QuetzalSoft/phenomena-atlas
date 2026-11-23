@@ -7,3 +7,6 @@
 node_modules/
 
 .DS_Store
+
+# Copyrighted reference standards, kept locally only
+/docs/software engineering/standars/
