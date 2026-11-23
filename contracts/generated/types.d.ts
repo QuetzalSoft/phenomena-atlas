@@ -172,7 +172,8 @@ export interface paths {
         /**
          * Create a phenomenon.
          * @description Creates a phenomenon as a draft, at revision 1. A new phenomenon usually starts with
-         *     no characteristics and a `blank` weighting function.
+         *     no characteristics and a `blank` weighting function. It starts with a refresh interval
+         *     of 60 minutes, changed by updating the phenomenon.
          */
         post: operations["Phenomena_createPhenomenon"];
         delete?: never;
@@ -734,6 +735,8 @@ export interface components {
             /** @description The fields every incident report carries, in the order they are shown. Keys are unique. */
             characteristics: components["schemas"]["Characteristic"][];
             weightingFunction: components["schemas"]["WeightingExpression"];
+            /** @description A new phenomenon starts with 60. */
+            refreshIntervalMinutes: components["schemas"]["RefreshIntervalMinutes"];
             status: components["schemas"]["PhenomenonStatus"];
             /**
              * Format: int32
@@ -745,7 +748,10 @@ export interface components {
             /** Format: date-time */
             updatedAt: string;
         };
-        /** @description A new definition for an existing phenomenon, replacing the previous one as a whole. */
+        /**
+         * @description A new definition for an existing phenomenon. It replaces the previous one as a whole,
+         *     except that an omitted refreshIntervalMinutes keeps its current value.
+         */
         PhenomenonChange: {
             /**
              * Format: int32
@@ -758,6 +764,8 @@ export interface components {
             /** @description The fields every incident report carries, in the order they are shown. Keys are unique. */
             characteristics: components["schemas"]["Characteristic"][];
             weightingFunction: components["schemas"]["WeightingExpression"];
+            /** @description Omitted: the current interval is kept, so a client that does not know this field cannot reset it. */
+            refreshIntervalMinutes?: components["schemas"]["RefreshIntervalMinutes"];
         };
         /** @description What an admin defines about a phenomenon. */
         PhenomenonDefinition: {
@@ -795,6 +803,15 @@ export interface components {
             baseRevision: number;
             status: components["schemas"]["PhenomenonStatus"];
         };
+        /**
+         * Format: int32
+         * @description How often, in minutes, the index of a phenomenon is recomputed for every region of the
+         *     current partition. The index is recomputed at least once per interval; between runs, the
+         *     map shows the last computed index. A change takes effect from the next run and does not
+         *     change past values. Public, like the rest of a published definition. From 5 minutes to
+         *     30 days.
+         */
+        RefreshIntervalMinutes: number;
         /** @description An area of the metropolitan area that the maps paint in its own colour. */
         Region: {
             /** @enum {string} */

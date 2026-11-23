@@ -381,6 +381,17 @@ namespace Regions {
 scalar PhenomenonId extends int32;
 
 @doc("""
+  How often, in minutes, the index of a phenomenon is recomputed for every region of the
+  current partition. The index is recomputed at least once per interval; between runs, the
+  map shows the last computed index. A change takes effect from the next run and does not
+  change past values. Public, like the rest of a published definition. From 5 minutes to
+  30 days.
+  """)
+@minValue(5)
+@maxValue(43200)
+scalar RefreshIntervalMinutes extends int32;
+
+@doc("""
   Where a phenomenon is in its life:
   
   - `draft`: being defined. Only admins see it, and it accepts no reports.
@@ -602,6 +613,10 @@ model PhenomenonDefinition {
 model Phenomenon {
   id: PhenomenonId;
   ...PhenomenonDefinition;
+
+  @doc("A new phenomenon starts with 60.")
+  refreshIntervalMinutes: RefreshIntervalMinutes;
+
   status: PhenomenonStatus;
 
   @doc("Grows by one on every change. Send it back as `baseRevision` to change the phenomenon.")
@@ -617,13 +632,19 @@ model PhenomenonList {
   items: Phenomenon[];
 }
 
-@doc("A new definition for an existing phenomenon, replacing the previous one as a whole.")
+@doc("""
+  A new definition for an existing phenomenon. It replaces the previous one as a whole,
+  except that an omitted refreshIntervalMinutes keeps its current value.
+  """)
 model PhenomenonChange {
   @doc("The revision the change was made against. It must still be the latest.")
   @minValue(1)
   baseRevision: int32;
 
   ...PhenomenonDefinition;
+
+  @doc("Omitted: the current interval is kept, so a client that does not know this field cannot reset it.")
+  refreshIntervalMinutes?: RefreshIntervalMinutes;
 }
 
 @doc("A change of a phenomenon's status.")
@@ -689,7 +710,8 @@ namespace Phenomena {
 
   @doc("""
     Creates a phenomenon as a draft, at revision 1. A new phenomenon usually starts with
-    no characteristics and a `blank` weighting function.
+    no characteristics and a `blank` weighting function. It starts with a refresh interval
+    of 60 minutes, changed by updating the phenomenon.
     """)
   @summary("Create a phenomenon.")
   @post
