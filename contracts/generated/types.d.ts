@@ -71,6 +71,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/accounts/me/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Edit the caller's own details.
+         * @description Changes the caller's own first name, last name and email. The change is written to the
+         *     identity provider first and then to the account, so it shows at once and is still there
+         *     after signing out and in. Nothing changes when the request fails.
+         *
+         *     A value outside the limits of the request body answers 400 `invalid_request`, as
+         *     everywhere else. A value inside them that the identity provider refuses answers 400
+         *     `invalid_account_details`; an email that another account already has answers 409
+         *     `email_already_in_use`; an identity provider that could not be reached, or that failed
+         *     in another way, answers 503 `account_update_unavailable`.
+         */
+        put: operations["Accounts_updateMyProfile"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/accounts/{accountId}/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Edit an account's details.
+         * @description Changes another account's first name, last name and email. Only admins may; the person's
+         *     own details are edited with `updateMyProfile`. It writes and fails the way
+         *     `updateMyProfile` does: 400 `invalid_account_details`, 409 `email_already_in_use` and
+         *     503 `account_update_unavailable`, and nothing changes in any of them. The person sees the
+         *     new details the next time they sign in.
+         */
+        put: operations["Accounts_updateAccountProfile"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/accounts/{accountId}/role": {
         parameters: {
             query?: never;
@@ -366,7 +418,9 @@ export interface components {
     schemas: {
         /**
          * @description A person known to the API, created the first time they call it with a valid token.
-         *     The profile fields are copied from that token and refreshed when they change.
+         *     The profile fields are copied from that token and refreshed when they change. The first
+         *     name, last name and email can also be edited, with `updateMyProfile` and
+         *     `updateAccountProfile`.
          */
         Account: {
             /**
@@ -378,6 +432,10 @@ export interface components {
             username?: string;
             /** @description The person's display name, when the identity provider has one. */
             name?: string;
+            /** @description The person's first name, when the identity provider has one. */
+            firstName?: string;
+            /** @description The person's last name, when the identity provider has one. */
+            lastName?: string;
             /** @description The person's email address, when the identity provider has one. */
             email?: string;
             role: components["schemas"]["Role"];
@@ -392,6 +450,22 @@ export interface components {
             items: components["schemas"]["Account"][];
             /** @description Pass as `cursor` to get the next page. Absent on the last page. */
             nextCursor?: string;
+        };
+        /**
+         * @description The details of an account that its owner, or an admin, can edit. The display name is
+         *     not one of them: it is the first and last name together. The username is not one
+         *     either: it comes from the identity provider and does not change.
+         */
+        AccountProfile: {
+            /** @description The person's first name, as the identity provider keeps it. */
+            firstName: string;
+            /** @description The person's last name, as the identity provider keeps it. */
+            lastName: string;
+            /**
+             * Format: email
+             * @description The person's email address.
+             */
+            email: string;
         };
         /**
          * @description How an aggregate combines the reports of a region:
@@ -1124,6 +1198,160 @@ export interface operations {
             };
         };
     };
+    Accounts_updateMyProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AccountProfile"];
+            };
+        };
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Account"];
+                };
+            };
+            /** @description The request does not match the contract. `details` lists what was wrong. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The access token is missing, invalid or expired. */
+            401: {
+                headers: {
+                    "WWW-Authenticate": "Bearer";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /**
+             * @description The request conflicts with the current state of the resource: it changed since the
+             *     version the request was based on, or the value asked for is already taken.
+             */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /**
+             * @description The service could not complete the request right now. Nothing was changed, and the
+             *     request can be tried again.
+             */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    Accounts_updateAccountProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                accountId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AccountProfile"];
+            };
+        };
+        responses: {
+            /** @description The request has succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Account"];
+                };
+            };
+            /** @description The request does not match the contract. `details` lists what was wrong. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The access token is missing, invalid or expired. */
+            401: {
+                headers: {
+                    "WWW-Authenticate": "Bearer";
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The caller's role does not allow this operation, or the operation's own rules forbid it. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /** @description The resource does not exist. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /**
+             * @description The request conflicts with the current state of the resource: it changed since the
+             *     version the request was based on, or the value asked for is already taken.
+             */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            /**
+             * @description The service could not complete the request right now. Nothing was changed, and the
+             *     request can be tried again.
+             */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     Accounts_changeAccountRole: {
         parameters: {
             query?: never;
@@ -1480,7 +1708,10 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description The resource changed since the version the request was based on. */
+            /**
+             * @description The request conflicts with the current state of the resource: it changed since the
+             *     version the request was based on, or the value asked for is already taken.
+             */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -1546,7 +1777,10 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description The resource changed since the version the request was based on. */
+            /**
+             * @description The request conflicts with the current state of the resource: it changed since the
+             *     version the request was based on, or the value asked for is already taken.
+             */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -1688,7 +1922,10 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description The resource changed since the version the request was based on. */
+            /**
+             * @description The request conflicts with the current state of the resource: it changed since the
+             *     version the request was based on, or the value asked for is already taken.
+             */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -1760,7 +1997,10 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description The resource changed since the version the request was based on. */
+            /**
+             * @description The request conflicts with the current state of the resource: it changed since the
+             *     version the request was based on, or the value asked for is already taken.
+             */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -1903,7 +2143,10 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
-            /** @description The resource changed since the version the request was based on. */
+            /**
+             * @description The request conflicts with the current state of the resource: it changed since the
+             *     version the request was based on, or the value asked for is already taken.
+             */
             409: {
                 headers: {
                     [name: string]: unknown;

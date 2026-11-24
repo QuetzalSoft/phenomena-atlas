@@ -38,6 +38,8 @@ The set of roles is fixed. Adding, removing or reshaping a role needs a new ADR.
 | Read past partition versions and their history | deny | deny | deny | allow |
 | List accounts and their roles | deny | deny | deny | allow |
 | Change an account's role | deny | deny | deny | allow, except their own |
+| Edit one's own account details | deny | allow | allow | allow |
+| Edit another account's details | deny | deny | deny | allow |
 | Define new roles | deny | deny | deny | deny |
 
 Anything not in this table is denied until it is added here.
