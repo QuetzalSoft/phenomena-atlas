@@ -1,4 +1,4 @@
-# 0014 - Each phenomenon has a refresh interval
+# 0015 - Each phenomenon has a refresh interval
 
 - Status: accepted
 - Date: 2026-11-22

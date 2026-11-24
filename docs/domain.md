@@ -70,7 +70,7 @@ hold an incomplete function; a published phenomenon always has a complete one.
 How often a phenomenon's index is recomputed, in whole minutes, from 5 minutes to 30 days.
 A new phenomenon starts with 60. The index is recomputed at least once per interval, and
 the map shows the last computed index in between. It is public once the phenomenon is
-published. See ADR 0014.
+published. See ADR 0015.
 
 ### Incident report
 
@@ -91,7 +91,7 @@ and everyone can see it, anonymous visitors included. A region where the functio
 undefined, such as a division by zero, has no index, which is not the same as an index of
 0. It is stored and recomputed when due (see Index computation), and everyone sees the
 last complete computation. Incident reports filed in a region that a later partition
-version retired count in the current region that overlaps most with it. See ADR 0015.
+version retired count in the current region that overlaps most with it. See ADR 0016.
 
 ### Index computation
 
@@ -99,7 +99,7 @@ One run that recomputes a phenomenon's index for every region of the current reg
 partition, recording when it started and the phenomenon revision and partition version it
 used. A published phenomenon is due for one when it never had one, its refresh interval
 has elapsed, its revision changed (any saved change to it, its status included) or the
-region partition changed. See ADR 0015 and ADR 0016.
+region partition changed. See ADR 0016 and ADR 0017.
 
 ### Account
 

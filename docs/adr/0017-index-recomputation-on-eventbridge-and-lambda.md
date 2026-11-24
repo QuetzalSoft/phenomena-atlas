@@ -1,11 +1,11 @@
-# 0016 - The index recomputation is triggered by EventBridge Scheduler and Lambda
+# 0017 - The index recomputation is triggered by EventBridge Scheduler and Lambda
 
 - Status: accepted
 - Date: 2026-11-22
 
 ## Context
 
-Something must wake up to run the computations that are due (ADR 0015). Hosting is not
+Something must wake up to run the computations that are due (ADR 0016). Hosting is not
 decided yet; this assumes AWS, and cost must be minimal. The team referred to Hangfire as
 the model.
 

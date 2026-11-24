@@ -1,4 +1,4 @@
-# 0015 - The phenomenon index is stored and recomputed when due
+# 0016 - The phenomenon index is stored and recomputed when due
 
 - Status: accepted
 - Date: 2026-11-22
@@ -8,7 +8,7 @@
 
 ADR 0012 left how the index is evaluated and stored to #24. ADR 0013 left how reports
 filed in a region that a later partition version retires count in the current partition.
-ADR 0014 gives each phenomenon a refresh interval, which only means something if the
+ADR 0015 gives each phenomenon a refresh interval, which only means something if the
 index is kept between computations.
 
 **Computing on read**: always fresh, but the cost of every map view grows with the
